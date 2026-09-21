@@ -386,7 +386,7 @@ function setupInput() {
     document.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
     document.addEventListener('mousemove', (e) => {
         if (gameState !== 'playing' || !document.pointerLockElement || paused) return;
-        yaw += e.movementX * 0.002 * settings.sensitivity;
+        yaw -= e.movementX * 0.002 * settings.sensitivity;
         const invertY = settings.invertY ? 1 : -1;
         pitch += e.movementY * 0.002 * settings.sensitivity * invertY;
         pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
