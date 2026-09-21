@@ -36,8 +36,37 @@ const ENEMY_TYPES = {
     heavy: { hp: 280, speed: 1.5, damage: 22, fireRate: 1500, score: 140, color: 0x5F3A30 },
 };
 
+function getLevelEnemyCount(lvl) {
+    if (lvl <= 1) return 3;
+    if (lvl <= 2) return 5;
+    if (lvl <= 3) return 7;
+    return 5 + lvl * 2;
+}
+
+function getLevelEnemyTypes(lvl) {
+    if (lvl <= 1) return ['grunt'];
+    if (lvl <= 2) return ['grunt', 'grunt'];
+    if (lvl <= 3) return ['grunt', 'grunt', 'rifle'];
+    if (lvl <= 5) return ['grunt', 'rifle', 'soldier'];
+    return ['grunt', 'rifle', 'soldier', 'sniper', 'heavy'];
+}
+
+function getLevelDamageScale(lvl) {
+    if (lvl <= 1) return 0.5;
+    if (lvl <= 2) return 0.65;
+    if (lvl <= 3) return 0.8;
+    return 1.0;
+}
+
+function getLevelFireRateScale(lvl) {
+    if (lvl <= 1) return 1.8;
+    if (lvl <= 2) return 1.5;
+    if (lvl <= 3) return 1.2;
+    return 1.0;
+}
+
 let scene, camera, renderer, clock;
-let player = { pos: new THREE.Vector3(0, PLAYER_HEIGHT, 0), vel: new THREE.Vector3(), onGround: true, crouching: false, health: 100, medkits: 2 };
+let player = { pos: new THREE.Vector3(0, PLAYER_HEIGHT, 0), vel: new THREE.Vector3(), onGround: true, crouching: false, health: 100, medkits: 3 };
 let weapons = WEAPONS.map(w => ({ ...w, ammo: w.mag, reloading: false, lastFire: 0 }));
 let currentWeaponIdx = 0;
 let enemies = [];
@@ -53,6 +82,45 @@ let sprinting = false, crouching = false;
 let yaw = 0, pitch = 0;
 let mouseDown = false;
 let levelBuildings = [];
+let buildingBoxes = [];
+
+function boxContains(box, x, z) {
+    return x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ;
+}
+
+function pushOutOfBuildings(pos, radius) {
+    for (const b of buildingBoxes) {
+        const closestX = Math.max(b.minX, Math.min(pos.x, b.maxX));
+        const closestZ = Math.max(b.minZ, Math.min(pos.z, b.maxZ));
+        const dx = pos.x - closestX;
+        const dz = pos.z - closestZ;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < radius) {
+            if (dist === 0) {
+                const cx = (b.minX + b.maxX) / 2;
+                const cz = (b.minZ + b.maxZ) / 2;
+                const pushX = pos.x - cx;
+                const pushZ = pos.z - cz;
+                const pushDist = Math.sqrt(pushX * pushX + pushZ * pushZ) || 1;
+                pos.x += (pushX / pushDist) * radius;
+                pos.z += (pushZ / pushDist) * radius;
+            } else {
+                const overlap = radius - dist;
+                pos.x += (dx / dist) * overlap;
+                pos.z += (dz / dist) * overlap;
+            }
+        }
+    }
+}
+
+function hasLineOfSight(from, to) {
+    const dir = new THREE.Vector3().subVectors(to, from);
+    const dist = dir.length();
+    dir.normalize();
+    const ray = new THREE.Raycaster(from.clone(), dir, 0.1, dist);
+    const hits = ray.intersectObjects(levelBuildings);
+    return hits.length === 0;
+}
 
 let audioCtx;
 function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
@@ -162,6 +230,7 @@ function clearLevel() {
 
 function generateLevel(lvl) {
     clearLevel();
+    buildingBoxes = [];
     const cityIdx = (lvl - 1) % CITIES.length;
     const city = CITIES[cityIdx];
     scene.background = new THREE.Color(city.sky);
@@ -190,6 +259,7 @@ function generateLevel(lvl) {
         bld.receiveShadow = true;
         scene.add(bld);
         levelBuildings.push(bld);
+        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
     }
     for (let i = 0; i < 12 + lvl; i++) {
         const w = 1.5 + Math.random() * 2;
@@ -205,12 +275,14 @@ function generateLevel(lvl) {
         cv.castShadow = true;
         scene.add(cv);
         levelBuildings.push(cv);
+        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
     }
-    const eCount = 5 + lvl * 2;
-    const types = Object.keys(ENEMY_TYPES);
+    const eCount = getLevelEnemyCount(lvl);
+    const availTypes = getLevelEnemyTypes(lvl);
+    const dmgScale = getLevelDamageScale(lvl);
+    const rateScale = getLevelFireRateScale(lvl);
     for (let i = 0; i < eCount; i++) {
-        const ti = Math.floor(Math.random() * Math.min(types.length, 1 + Math.floor(lvl / 3)));
-        const type = types[ti];
+        const type = availTypes[Math.floor(Math.random() * availTypes.length)];
         const cfg = ENEMY_TYPES[type];
         const angle = Math.random() * Math.PI * 2;
         const dist = 15 + Math.random() * (arena - 15);
@@ -243,7 +315,7 @@ function generateLevel(lvl) {
         scene.add(body);
         enemies.push({
             mesh: body, type, hp: cfg.hp, maxHp: cfg.hp, speed: cfg.speed,
-            damage: cfg.damage, fireRate: cfg.fireRate, score: cfg.score,
+            damage: cfg.damage * dmgScale, fireRate: cfg.fireRate * rateScale, score: cfg.score,
             lastFire: 0, state: 'patrol',
             patrolTarget: new THREE.Vector3((Math.random()-0.5)*arena, 0, (Math.random()-0.5)*arena),
             alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true
@@ -448,32 +520,48 @@ function updateEnemies(dt) {
                 head.lookAt(e.mesh.position.x + lookDir.x, e.mesh.position.y + 1.0 + lookDir.y, e.mesh.position.z + lookDir.z);
             }
             if (dist > 8) {
-                e.mesh.position.x += dirToPlayer.x * e.speed * dt;
-                e.mesh.position.z += dirToPlayer.z * e.speed * dt;
+                const newX = e.mesh.position.x + dirToPlayer.x * e.speed * dt;
+                const newZ = e.mesh.position.z + dirToPlayer.z * e.speed * dt;
+                const testPos = { x: newX, z: newZ };
+                pushOutOfBuildings(testPos, 0.5);
+                e.mesh.position.x = testPos.x;
+                e.mesh.position.z = testPos.z;
             } else if (dist < 5) {
-                e.mesh.position.x -= dirToPlayer.x * e.speed * 0.5 * dt;
-                e.mesh.position.z -= dirToPlayer.z * e.speed * 0.5 * dt;
+                const newX = e.mesh.position.x - dirToPlayer.x * e.speed * 0.5 * dt;
+                const newZ = e.mesh.position.z - dirToPlayer.z * e.speed * 0.5 * dt;
+                const testPos = { x: newX, z: newZ };
+                pushOutOfBuildings(testPos, 0.5);
+                e.mesh.position.x = testPos.x;
+                e.mesh.position.z = testPos.z;
             }
             const strafeVec = new THREE.Vector3(-dirToPlayer.z, 0, dirToPlayer.x).multiplyScalar(e.strafeDir);
-            e.mesh.position.x += strafeVec.x * e.speed * 0.4 * dt;
-            e.mesh.position.z += strafeVec.z * e.speed * 0.4 * dt;
+            const strafeX = e.mesh.position.x + strafeVec.x * e.speed * 0.4 * dt;
+            const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * 0.4 * dt;
+            const strafePos = { x: strafeX, z: strafeZ };
+            pushOutOfBuildings(strafePos, 0.5);
+            e.mesh.position.x = strafePos.x;
+            e.mesh.position.z = strafePos.z;
             if (Math.random() < 0.005) e.strafeDir *= -1;
             if (now - e.lastFire > e.fireRate && dist < 35) {
-                e.lastFire = now;
-                const accuracy = 0.15 / (dist * 0.05 + 1);
-                const hitChance = Math.max(0.1, 0.8 - dist * 0.015);
-                if (Math.random() < hitChance) {
-                    const dmg = e.damage * (0.8 + Math.random() * 0.4);
-                    player.health -= dmg;
-                    playSound('hurt');
-                    showDamageOverlay();
-                    if (player.health <= 0) {
-                        player.health = 0;
-                        gameOver();
+                const gunPos = new THREE.Vector3().copy(e.mesh.position);
+                gunPos.y += 0.8;
+                const playerAim = new THREE.Vector3().copy(player.pos);
+                if (hasLineOfSight(gunPos, playerAim)) {
+                    e.lastFire = now;
+                    const hitChance = Math.max(0.1, 0.8 - dist * 0.015);
+                    if (Math.random() < hitChance) {
+                        const dmg = e.damage * (0.8 + Math.random() * 0.4);
+                        player.health -= dmg;
+                        playSound('hurt');
+                        showDamageOverlay();
+                        if (player.health <= 0) {
+                            player.health = 0;
+                            gameOver();
+                        }
+                        updateHUD();
                     }
-                    updateHUD();
+                    spawnEnemyBullet(e.mesh.position.clone());
                 }
-                spawnEnemyBullet(e.mesh.position.clone());
             }
         } else {
             e.alertTimer -= dt;
@@ -489,8 +577,12 @@ function updateEnemies(dt) {
                     );
                 } else {
                     toTarget.normalize();
-                    e.mesh.position.x += toTarget.x * e.speed * 0.3 * dt;
-                    e.mesh.position.z += toTarget.z * e.speed * 0.3 * dt;
+                    const newX = e.mesh.position.x + toTarget.x * e.speed * 0.3 * dt;
+                    const newZ = e.mesh.position.z + toTarget.z * e.speed * 0.3 * dt;
+                    const testPos = { x: newX, z: newZ };
+                    pushOutOfBuildings(testPos, 0.5);
+                    e.mesh.position.x = testPos.x;
+                    e.mesh.position.z = testPos.z;
                 }
             }
         }
@@ -507,13 +599,23 @@ function spawnEnemyBullet(from) {
     scene.add(mesh);
     const dir = new THREE.Vector3().subVectors(player.pos, from).normalize();
     const start = Date.now();
+    let blocked = false;
     projectiles.push({
         mesh, type: 'bullet', born: start,
         update: () => {
+            if (blocked) return;
             const spd = 60;
+            const prevPos = mesh.position.clone();
             mesh.position.x += dir.x * spd * 0.016;
             mesh.position.y += dir.y * spd * 0.016;
             mesh.position.z += dir.z * spd * 0.016;
+            const ray = new THREE.Raycaster(prevPos, dir, 0, spd * 0.016 + 0.1);
+            const hits = ray.intersectObjects(levelBuildings);
+            if (hits.length > 0) {
+                mesh.position.copy(hits[0].point);
+                blocked = true;
+                mat.color.setHex(0x888888);
+            }
             if (Date.now() - start > 2000) scene.remove(mesh);
         }
     });
@@ -549,6 +651,7 @@ function updatePlayer(dt) {
     camera.rotation.x = pitch;
     player.pos.x = Math.max(-140, Math.min(140, player.pos.x));
     player.pos.z = Math.max(-140, Math.min(140, player.pos.z));
+    pushOutOfBuildings(player.pos, 0.4);
     if (mouseDown) shoot();
 }
 
@@ -684,7 +787,7 @@ function restartGame() {
     score = 0;
     kills = 0;
     player.health = 100;
-    player.medkits = 2;
+    player.medkits = 3;
     weapons.forEach(w => { w.ammo = w.mag; w.reloading = false; });
     currentWeaponIdx = 0;
     generateLevel(level);
