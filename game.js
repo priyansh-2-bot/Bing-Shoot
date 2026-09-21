@@ -83,6 +83,8 @@ let yaw = 0, pitch = 0;
 let mouseDown = false;
 let levelBuildings = [];
 let buildingBoxes = [];
+let settings = { sensitivity: 1.0, fov: 75, volume: 80, invertY: false, crosshair: true, minimap: true };
+let paused = false;
 
 function boxContains(box, x, z) {
     return x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ;
@@ -346,6 +348,7 @@ function generateLevel(lvl) {
 function setupInput() {
     document.addEventListener('keydown', (e) => {
         if (gameState !== 'playing') return;
+        if (paused && e.code !== 'Escape') return;
         switch (e.code) {
             case 'KeyW': moveForward = true; break;
             case 'KeyS': moveBack = true; break;
@@ -362,6 +365,11 @@ function setupInput() {
             case 'Digit2': switchWeapon(1); break;
             case 'Digit3': switchWeapon(2); break;
             case 'Digit4': switchWeapon(3); break;
+            case 'Escape':
+                e.preventDefault();
+                if (paused) resumeGame();
+                else pauseGame();
+                break;
         }
     });
     document.addEventListener('keyup', (e) => {
@@ -374,12 +382,13 @@ function setupInput() {
             case 'ControlLeft': crouching = false; break;
         }
     });
-    document.addEventListener('mousedown', (e) => { if (e.button === 0) mouseDown = true; });
+    document.addEventListener('mousedown', (e) => { if (e.button === 0 && !paused) mouseDown = true; });
     document.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
     document.addEventListener('mousemove', (e) => {
-        if (gameState !== 'playing' || !document.pointerLockElement) return;
-        yaw -= e.movementX * 0.002;
-        pitch -= e.movementY * 0.002;
+        if (gameState !== 'playing' || !document.pointerLockElement || paused) return;
+        yaw += e.movementX * 0.002 * settings.sensitivity;
+        const invertY = settings.invertY ? 1 : -1;
+        pitch += e.movementY * 0.002 * settings.sensitivity * invertY;
         pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
     });
 }
@@ -798,6 +807,82 @@ function restartGame() {
 }
 window.restartGame = restartGame;
 
+function pauseGame() {
+    if (gameState !== 'playing') return;
+    paused = true;
+    document.exitPointerLock();
+    document.getElementById('pauseScreen').classList.add('show');
+}
+
+function resumeGame() {
+    paused = false;
+    document.getElementById('pauseScreen').classList.remove('show');
+    document.getElementById('settingsScreen').classList.remove('show');
+    document.body.requestPointerLock();
+}
+
+function openSettings() {
+    document.getElementById('pauseScreen').classList.remove('show');
+    document.getElementById('settingsScreen').classList.add('show');
+    refreshSettingsUI();
+}
+
+function closeSettings() {
+    document.getElementById('settingsScreen').classList.remove('show');
+    document.getElementById('pauseScreen').classList.add('show');
+}
+
+function quitToMenu() {
+    paused = false;
+    gameState = 'menu';
+    document.getElementById('pauseScreen').classList.remove('show');
+    document.getElementById('settingsScreen').classList.remove('show');
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('blocker').classList.remove('show');
+    document.getElementById('blocker').classList.remove('hidden');
+    document.exitPointerLock();
+}
+
+function refreshSettingsUI() {
+    document.getElementById('sensitivityVal').textContent = settings.sensitivity.toFixed(1);
+    document.getElementById('fovVal').textContent = settings.fov;
+    document.getElementById('volumeVal').textContent = settings.volume + '%';
+    const iyBtn = document.getElementById('invertYBtn');
+    iyBtn.textContent = settings.invertY ? 'ON' : 'OFF';
+    iyBtn.classList.toggle('off', !settings.invertY);
+    const chBtn = document.getElementById('crosshairBtn');
+    chBtn.textContent = settings.crosshair ? 'ON' : 'OFF';
+    chBtn.classList.toggle('off', !settings.crosshair);
+    document.querySelector('.crosshair').style.display = settings.crosshair ? '' : 'none';
+    const mmBtn = document.getElementById('minimapBtn');
+    mmBtn.textContent = settings.minimap ? 'ON' : 'OFF';
+    mmBtn.classList.toggle('off', !settings.minimap);
+    document.querySelector('.hud-minimap').style.display = settings.minimap ? '' : 'none';
+    if (camera) camera.fov = settings.fov;
+    if (camera) camera.updateProjectionMatrix();
+}
+
+window.adjustSetting = function(key, delta) {
+    if (key === 'sensitivity') {
+        settings.sensitivity = Math.max(0.2, Math.min(3.0, +(settings.sensitivity + delta).toFixed(1)));
+    } else if (key === 'fov') {
+        settings.fov = Math.max(50, Math.min(110, settings.fov + delta));
+    } else if (key === 'volume') {
+        settings.volume = Math.max(0, Math.min(100, settings.volume + delta));
+    }
+    refreshSettingsUI();
+};
+
+window.toggleSetting = function(key) {
+    settings[key] = !settings[key];
+    refreshSettingsUI();
+};
+
+document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('settingsBackBtn').addEventListener('click', closeSettings);
+document.getElementById('quitBtn').addEventListener('click', quitToMenu);
+
 function startGame() {
     initAudio();
     initThree();
@@ -813,14 +898,14 @@ function startGame() {
 document.getElementById('startBtn').addEventListener('click', startGame);
 
 document.addEventListener('pointerlockchange', () => {
-    if (!document.pointerLockElement && gameState === 'playing') {
-        // Player exited pointer lock
+    if (!document.pointerLockElement && gameState === 'playing' && !paused) {
+        pauseGame();
     }
 });
 
 function gameLoop() {
     requestAnimationFrame(gameLoop);
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || paused) return;
     const dt = Math.min(clock.getDelta(), 0.05);
     updatePlayer(dt);
     updateEnemies(dt);
