@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BING SHOOT - Tactical FPS</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: #000; font-family: 'Segoe UI', Arial, sans-serif; }
+        canvas { display: block; }
+
+        #blocker {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #blocker.hidden { display: none; }
+
+        .menu-title {
+            font-size: 64px; font-weight: 900; letter-spacing: 8px;
+            background: linear-gradient(135deg, #00E5A0, #00B8D4);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 40px rgba(0,229,160,0.3);
+        }
+        .menu-subtitle {
+            font-size: 16px; color: #8aa; letter-spacing: 6px; margin-top: 8px;
+        }
+        .menu-btn {
+            margin-top: 30px; padding: 16px 48px; font-size: 18px; font-weight: 700;
+            background: linear-gradient(135deg, #00C896, #00A87A);
+            color: #fff; border: none; border-radius: 6px; cursor: pointer;
+            letter-spacing: 3px; transition: all 0.2s;
+        }
+        .menu-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,200,150,0.4); }
+        .menu-controls {
+            margin-top: 40px; color: #7ab; font-size: 12px; letter-spacing: 1px;
+            text-align: center; line-height: 2;
+        }
+
+        #hud {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10;
+        }
+        #hud.hidden { display: none; }
+
+        .hud-bottom {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 40px; align-items: flex-end;
+        }
+        .hud-ammo { font-size: 48px; font-weight: 900; color: #00E5FF; text-shadow: 0 0 20px rgba(0,229,255,0.4); }
+        .hud-ammo small { font-size: 18px; color: #6ad; }
+        .hud-weapon { font-size: 14px; color: #9bc; letter-spacing: 2px; margin-bottom: 8px; }
+
+        .hud-health-container {
+            position: absolute; bottom: 20px; left: 20px;
+        }
+        .hud-health-bar {
+            width: 200px; height: 8px; background: rgba(20,20,30,0.8);
+            border: 1px solid rgba(0,229,160,0.3); border-radius: 4px; overflow: hidden;
+        }
+        .hud-health-fill {
+            height: 100%; background: linear-gradient(90deg, #00E5A0, #7CFF6B);
+            transition: width 0.3s;
+        }
+        .hud-health-text {
+            font-size: 14px; color: #00E5A0; margin-top: 4px;
+        }
+
+        .hud-top-left {
+            position: absolute; top: 20px; left: 20px;
+        }
+        .hud-level { font-size: 20px; font-weight: 700; color: #fff; }
+        .hud-score { font-size: 16px; color: #FFD740; margin-top: 4px; }
+        .hud-kills { font-size: 14px; color: #9ab; margin-top: 2px; }
+
+        .hud-minimap {
+            position: absolute; top: 20px; right: 20px;
+            width: 140px; height: 140px; border-radius: 50%;
+            background: rgba(8,16,30,0.85); border: 2px solid rgba(0,229,160,0.4);
+            overflow: hidden;
+        }
+        .hud-minimap canvas { width: 100%; height: 100%; }
+
+        .crosshair {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 24px; height: 24px;
+        }
+        .crosshair::before, .crosshair::after {
+            content: ''; position: absolute; background: rgba(255,255,255,0.9);
+        }
+        .crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+        .crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+        .hitmarker {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 20px; height: 20px; opacity: 0;
+            transition: opacity 0.1s;
+        }
+        .hitmarker.show { opacity: 1; }
+        .hitmarker::before, .hitmarker::after {
+            content: ''; position: absolute; background: #FF5252;
+        }
+        .hitmarker::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%) rotate(45deg); }
+        .hitmarker::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%) rotate(45deg); }
+
+        .damage-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(180,0,0,0.6) 100%);
+            opacity: 0; transition: opacity 0.15s;
+        }
+        .damage-overlay.show { opacity: 1; }
+
+        .game-over-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .game-over-screen.show { display: flex; }
+        .game-over-title { font-size: 56px; font-weight: 900; color: #FF5252; letter-spacing: 6px; }
+        .game-over-score { font-size: 24px; color: #FFD740; margin-top: 16px; }
+        .game-over-btn {
+            margin-top: 30px; padding: 14px 40px; font-size: 16px; font-weight: 700;
+            background: #00C896; color: #fff; border: none; border-radius: 6px;
+            cursor: pointer; letter-spacing: 2px;
+        }
+        .game-over-btn:hover { background: #00E5A0; }
+
+        .win-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .win-screen.show { display: flex; }
+        .win-title { font-size: 56px; font-weight: 900; color: #00E5A0; letter-spacing: 6px; }
+        .win-score { font-size: 24px; color: #FFD740; margin-top: 16px; }
+        .win-btn {
+            margin-top: 30px; padding: 14px 40px; font-size: 16px; font-weight: 700;
+            background: #00C896; color: #fff; border: none; border-radius: 6px;
+            cursor: pointer; letter-spacing: 2px;
+        }
+        .win-btn:hover { background: #00E5A0; }
+
+        .weapon-slots {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 6px;
+        }
+        .weapon-slot {
+            width: 48px; height: 48px; background: rgba(10,15,25,0.7);
+            border: 1px solid rgba(0,229,160,0.2); border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; color: #688; letter-spacing: 1px;
+        }
+        .weapon-slot.active {
+            border-color: #00E5A0; color: #00E5A0;
+            background: rgba(0,229,160,0.1);
+        }
+
+        .medkit-indicator {
+            position: absolute; bottom: 20px; right: 20px;
+            font-size: 14px; color: #7CFF6B;
+        }
+    </style>
+</head>
+<body>
+    <div id="blocker">
+        <div class="menu-title">BING SHOOT</div>
+        <div class="menu-subtitle">TACTICAL CAMPAIGN</div>
+        <button class="menu-btn" id="startBtn">START GAME</button>
+        <div class="menu-controls">
+            WASD - MOVE &nbsp;|&nbsp; MOUSE - LOOK &nbsp;|&nbsp; LMB - SHOOT<br>
+            SPACE - JUMP &nbsp;|&nbsp; CTRL - CROUCH &nbsp;|&nbsp; SHIFT - SPRINT<br>
+            1-4 - WEAPONS &nbsp;|&nbsp; R - RELOAD &nbsp;|&nbsp; Q - MEDKIT
+        </div>
+    </div>
+
+    <div id="hud" class="hidden">
+        <div class="crosshair"></div>
+        <div class="hitmarker" id="hitmarker"></div>
+        <div class="damage-overlay" id="damageOverlay"></div>
+
+        <div class="hud-top-left">
+            <div class="hud-level" id="hudLevel">LEVEL 1 - MUMBAI</div>
+            <div class="hud-score" id="hudScore">SCORE: 0</div>
+            <div class="hud-kills" id="hudKills">KILLS: 0</div>
+        </div>
+
+        <div class="hud-minimap">
+            <canvas id="minimapCanvas" width="140" height="140"></canvas>
+        </div>
+
+        <div class="hud-health-container">
+            <div class="hud-health-bar"><div class="hud-health-fill" id="healthFill"></div></div>
+            <div class="hud-health-text" id="healthText">100 HP</div>
+        </div>
+
+        <div class="weapon-slots" id="weaponSlots"></div>
+
+        <div class="hud-bottom">
+            <div>
+                <div class="hud-weapon" id="hudWeapon">REVOLVER .44</div>
+                <div class="hud-ammo"><span id="hudAmmo">6</span> <small>/ 6</small></div>
+            </div>
+        </div>
+
+        <div class="medkit-indicator" id="medkitIndicator">MEDKITS: 2</div>
+    </div>
+
+    <div class="game-over-screen" id="gameOverScreen">
+        <div class="game-over-title">MISSION FAILED</div>
+        <div class="game-over-score" id="finalScore">SCORE: 0</div>
+        <button class="game-over-btn" onclick="restartGame()">RETRY</button>
+    </div>
+
+    <div class="win-screen" id="winScreen">
+        <div class="win-title">MISSION COMPLETE</div>
+        <div class="win-score" id="winScore">SCORE: 0</div>
+        <button class="win-btn" onclick="restartGame()">PLAY AGAIN</button>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
