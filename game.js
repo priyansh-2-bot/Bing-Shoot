@@ -9,27 +9,40 @@ const SPRINT_SPEED = 10;
 const CROUCH_SPEED = 3;
 
 const CITIES = [
-    { name: 'Mumbai', ground: 0x2E3034, sky: 0x78AEE6, bld: 0x969BA8, accent: 0x1C3C6E },
-    { name: 'Kolkata', ground: 0x483E30, sky: 0x96AFBE, bld: 0xCDAF5F, accent: 0x78281E },
-    { name: 'Chennai', ground: 0xCDBE96, sky: 0x87C3E1, bld: 0xD7AA6E, accent: 0x285A3C },
-    { name: 'Delhi', ground: 0x968278, sky: 0xC8B0A0, bld: 0xB95F3C, accent: 0x5A2D1E },
-    { name: 'Chandigarh', ground: 0xB9B9B9, sky: 0x96BEE1, bld: 0xE1E1E1, accent: 0xC83C32 },
-    { name: 'Bengaluru', ground: 0x5A7850, sky: 0x82AAC8, bld: 0xAAB4CD, accent: 0x1E783C },
-    { name: 'Panjim', ground: 0xD7C8A0, sky: 0x78BEDC, bld: 0xE66E5F, accent: 0x5AA0A0 },
-    { name: 'Jaipur', ground: 0xCDAF8C, sky: 0xE6BEA0, bld: 0xD78278, accent: 0x6E3C32 },
-    { name: 'Lucknow', ground: 0xC8C3B9, sky: 0xAAC3D7, bld: 0xEBE1C8, accent: 0x006E82 },
-    { name: 'Kanyakumari', ground: 0xCDC8AF, sky: 0xFFD296, bld: 0xE6733C, accent: 0x4646C8 },
+    { name: 'Mumbai', place: 'Marine Drive', ground: 0x2E3034, sky: 0x78AEE6, bld: 0x969BA8, accent: 0x1C3C6E },
+    { name: 'Kolkata', place: 'Howrah Bridge', ground: 0x483E30, sky: 0x96AFBE, bld: 0xCDAF5F, accent: 0x78281E },
+    { name: 'Chennai', place: 'Marina Beach', ground: 0xCDBE96, sky: 0x87C3E1, bld: 0xD7AA6E, accent: 0x285A3C },
+    { name: 'Delhi', place: 'India Gate', ground: 0x968278, sky: 0xC8B0A0, bld: 0xB95F3C, accent: 0x5A2D1E },
+    { name: 'Chandigarh', place: 'Sector 17 Plaza', ground: 0xB9B9B9, sky: 0x96BEE1, bld: 0xE1E1E1, accent: 0xC83C32 },
+    { name: 'Bengaluru', place: 'MG Road', ground: 0x5A7850, sky: 0x82AAC8, bld: 0xAAB4CD, accent: 0x1E783C },
+    { name: 'Panjim', place: 'Mandovi Riverfront', ground: 0xD7C8A0, sky: 0x78BEDC, bld: 0xE66E5F, accent: 0x5AA0A0 },
+    { name: 'Jaipur', place: 'Hawa Mahal', ground: 0xCDAF8C, sky: 0xE6BEA0, bld: 0xD78278, accent: 0x6E3C32 },
+    { name: 'Lucknow', place: 'Bara Imambara', ground: 0xC8C3B9, sky: 0xAAC3D7, bld: 0xEBE1C8, accent: 0x006E82 },
+    { name: 'Kanyakumari', place: 'Rock Memorial', ground: 0xCDC8AF, sky: 0xFFD296, bld: 0xE6733C, accent: 0x4646C8 },
 ];
 
 const WEAPONS = [
-    { id: 'revolver', name: 'REVOLVER .44', slot: 1, damage: 38, headMult: 2.5, fireRate: 300, mag: 6, reloadTime: 1100, spread: 0.01, auto: false, sfx: 'gunshot', adsZoom: 62, tracer: { color: 0xffd27a, width: 0.035, life: 90 } },
-    { id: 'mp5', name: 'MP5 SMG', slot: 2, damage: 16, headMult: 3.0, fireRate: 85, mag: 30, reloadTime: 1600, spread: 0.02, auto: true, sfx: 'smg', adsZoom: 58, tracer: { color: 0x7df9ff, width: 0.022, life: 60 } },
-    { id: 'ak47', name: 'AK-47', slot: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 30, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'rifle', adsZoom: 50, tracer: { color: 0xffb457, width: 0.028, life: 75 } },
-    { id: 'm1014', name: 'M1014 SHOTGUN', slot: 4, damage: 9, headMult: 2.0, fireRate: 720, mag: 7, reloadTime: 2400, spread: 0.08, auto: false, pellets: 7, sfx: 'shotgun', adsZoom: 62, tracer: { color: 0xfff2b0, width: 0.03, life: 70 } },
-    { id: 'scar', name: 'SCAR-L', slot: 5, damage: 30, headMult: 3.2, fireRate: 130, mag: 30, reloadTime: 1800, spread: 0.018, auto: true, sfx: 'rifle', adsZoom: 42, tracer: { color: 0x9dff70, width: 0.026, life: 75 } },
-    { id: 'awp', name: 'AWP SNIPER', slot: 6, damage: 110, headMult: 2.0, fireRate: 1400, mag: 5, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'rifle', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.02, life: 110 } },
-    { id: 'rpg', name: 'RPG-7', slot: 7, damage: 130, headMult: 1.0, fireRate: 1800, mag: 1, reloadTime: 2800, spread: 0.005, auto: false, sfx: 'shotgun', adsZoom: 60, rocket: true, tracer: { color: 0xff6a3c, width: 0.06, life: 120 } },
+    { id: 'revolver', name: 'REVOLVER .44', slot: 1, unlock: 1, damage: 38, headMult: 2.5, fireRate: 300, mag: 6, reloadTime: 1100, spread: 0.01, auto: false, sfx: 'gunshot', adsZoom: 62, tracer: { color: 0xffd27a, width: 0.022, life: 90 } },
+    { id: 'mp5', name: 'MP5 SMG', slot: 2, unlock: 2, damage: 16, headMult: 3.0, fireRate: 85, mag: 30, reloadTime: 1600, spread: 0.02, auto: true, sfx: 'smg', adsZoom: 58, tracer: { color: 0x7df9ff, width: 0.015, life: 60 } },
+    { id: 'ak47', name: 'AK-47', slot: 3, unlock: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 30, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'rifle', adsZoom: 50, tracer: { color: 0xffb457, width: 0.018, life: 75 } },
+    { id: 'm1014', name: 'M1014 SHOTGUN', slot: 4, unlock: 4, damage: 9, headMult: 2.0, fireRate: 720, mag: 7, reloadTime: 2400, spread: 0.08, auto: false, pellets: 7, sfx: 'shotgun', adsZoom: 62, tracer: { color: 0xfff2b0, width: 0.02, life: 70 } },
+    { id: 'scar', name: 'SCAR-L', slot: 5, unlock: 5, damage: 30, headMult: 3.2, fireRate: 130, mag: 30, reloadTime: 1800, spread: 0.018, auto: true, sfx: 'rifle', adsZoom: 42, tracer: { color: 0x9dff70, width: 0.017, life: 75 } },
+    { id: 'awp', name: 'AWP SNIPER', slot: 6, unlock: 7, damage: 110, headMult: 2.0, fireRate: 1400, mag: 5, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'rifle', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.013, life: 110 } },
+    { id: 'rpg', name: 'RPG-7', slot: 7, unlock: 9, damage: 130, headMult: 1.0, fireRate: 1800, mag: 1, reloadTime: 2800, spread: 0.005, auto: false, sfx: 'shotgun', adsZoom: 60, rocket: true, tracer: { color: 0xff6a3c, width: 0.04, life: 120 } },
 ];
+
+function isUnlocked(idx) {
+    return WEAPONS[idx].unlock <= level;
+}
+
+function showBanner(text, ms) {
+    const el = document.getElementById('unlockBanner');
+    if (!el) return;
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(showBanner._t);
+    showBanner._t = setTimeout(() => el.classList.remove('show'), ms || 3500);
+}
 
 const GUN_IDS = ['revolver', 'mp5', 'ak47', 'm1014', 'scar', 'awp', 'rpg'];
 
@@ -358,10 +371,10 @@ function initThree() {
     clock = new THREE.Clock();
     scene.add(camera);
     // Muzzle flash light + quad attached to camera (bottom-right, gun position)
-    muzzleLight = new THREE.PointLight(0xffb457, 0, 12, 2);
+    muzzleLight = new THREE.PointLight(0xffb457, 0, 8, 2);
     muzzleLight.position.set(0.35, -0.25, -0.8);
     camera.add(muzzleLight);
-    const flashGeo = new THREE.PlaneGeometry(0.35, 0.35);
+    const flashGeo = new THREE.PlaneGeometry(0.2, 0.2);
     const flashMat = new THREE.MeshBasicMaterial({
         color: 0xffd27a, transparent: true, opacity: 0,
         blending: THREE.AdditiveBlending, depthWrite: false
@@ -388,6 +401,413 @@ function clearLevel() {
     liveThrowables = []; fireZones = [];
 }
 
+function lmMat(color, emissive, ei) {
+    return new THREE.MeshStandardMaterial({ color, roughness: 0.85, emissive: emissive || 0x000000, emissiveIntensity: ei || 0 });
+}
+
+function lmBox(x, y, z, w, h, d, color, collide, ry) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lmMat(color));
+    m.position.set(x, y, z);
+    if (ry) m.rotation.y = ry;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    scene.add(m);
+    levelBuildings.push(m);
+    if (collide) buildingBoxes.push({ minX: x - w / 2 - 0.2, maxX: x + w / 2 + 0.2, minZ: z - d / 2 - 0.2, maxZ: z + d / 2 + 0.2, h, cx: x, cz: z });
+    return m;
+}
+
+function lmFlat(x, z, w, d, color, y) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), lmMat(color));
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, y || 0.02, z);
+    m.receiveShadow = true;
+    scene.add(m);
+    levelBuildings.push(m);
+    return m;
+}
+
+function lmCyl(x, y, z, rt, rb, h, color, seg) {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 10), lmMat(color));
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    scene.add(m);
+    levelBuildings.push(m);
+    return m;
+}
+
+// Triumphal arch monument (Gateway / India Gate style)
+function lmArch(x, z, s, color, ry) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    if (ry) g.rotation.y = ry;
+    const mk = (w, h, d, px, py, pz, c) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lmMat(c || color));
+        m.position.set(px, py, pz);
+        m.castShadow = true;
+        g.add(m);
+        return m;
+    };
+    mk(0.22 * s, 0.7 * s, 0.9 * s, -0.39 * s, 0.35 * s, 0);
+    mk(0.22 * s, 0.7 * s, 0.9 * s, 0.39 * s, 0.35 * s, 0);
+    mk(1.0 * s, 0.22 * s, 0.95 * s, 0, 0.78 * s, 0);
+    mk(0.7 * s, 0.12 * s, 0.7 * s, 0, 0.95 * s, 0);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.22 * s, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), lmMat(color));
+    dome.position.set(0, 1.0 * s, 0);
+    dome.castShadow = true;
+    g.add(dome);
+    for (let i = -1; i <= 1; i++) {
+        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.03 * s, 0.03 * s, 0.25 * s, 6), lmMat(color));
+        t.position.set(i * 0.3 * s, 1.05 * s, 0.3 * s);
+        g.add(t);
+    }
+    scene.add(g);
+    g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
+    buildingBoxes.push({ minX: x - 0.55 * s, maxX: x + 0.55 * s, minZ: z - 0.55 * s, maxZ: z + 0.55 * s, h: 1.0 * s, cx: x, cz: z });
+}
+
+// Striped tower (lighthouse / minaret)
+function lmTower(x, z, w, h, c1, c2) {
+    const bands = 6;
+    for (let i = 0; i < bands; i++) {
+        lmBox(x, (h / bands) * (i + 0.5), z, w * (1 - i * 0.06), h / bands + 0.05, w * (1 - i * 0.06), i % 2 ? c1 : c2, i === 0);
+    }
+    lmCyl(x, h + 0.5, z, 0.4, 0.4, 1.0, 0x2a2d36);
+    const lampM = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffe9a3 }));
+    lampM.position.set(x, h + 1.1, z);
+    scene.add(lampM);
+    levelBuildings.push(lampM);
+}
+
+// Truss bridge across a river strip
+function lmBridge(cx, cz, len, alongX) {
+    const deckW = 7, deckH = 1.2;
+    const g = new THREE.Group();
+    g.position.set(cx, 0, cz);
+    if (!alongX) g.rotation.y = Math.PI / 2;
+    const steel = lmMat(0x7a4a3a);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(len, deckH, deckW), lmMat(0x3c3f48));
+    deck.position.y = 3.6;
+    deck.castShadow = true;
+    g.add(deck);
+    for (const sz of [-1, 1]) {
+        const rail = new THREE.Mesh(new THREE.BoxGeometry(len, 1.0, 0.3), steel);
+        rail.position.set(0, 4.4, sz * (deckW / 2));
+        g.add(rail);
+        for (let i = -3; i <= 3; i++) {
+            const post = new THREE.Mesh(new THREE.BoxGeometry(0.4, 3.2, 0.4), steel);
+            post.position.set(i * len / 7, 5.6, sz * (deckW / 2));
+            post.rotation.z = -i * 0.18 * sz;
+            g.add(post);
+        }
+        const arc = new THREE.Mesh(new THREE.TorusGeometry(len * 0.32, 0.35, 6, 14, Math.PI), steel);
+        arc.position.set(0, 4.4, sz * (deckW / 2));
+        g.add(arc);
+    }
+    for (let i = -1; i <= 1; i++) {
+        const pier = new THREE.Mesh(new THREE.BoxGeometry(2, 4.6, deckW + 1), lmMat(0x8a8d96));
+        pier.position.set(i * len / 3, 1.0, 0);
+        g.add(pier);
+    }
+    scene.add(g);
+    g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
+}
+
+// Circular fountain plaza
+function lmFountain(x, z) {
+    lmCyl(x, 0.4, z, 5, 5.4, 0.8, 0xb9bdc8, 16);
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.4, 0.2, 16),
+        new THREE.MeshStandardMaterial({ color: 0x3f9fd8, roughness: 0.2 }));
+    w.position.set(x, 0.85, z);
+    scene.add(w);
+    levelBuildings.push(w);
+    lmCyl(x, 1.6, z, 0.5, 0.8, 2.4, 0x9aa0ac, 10);
+    lmCyl(x, 2.9, z, 1.4, 0.4, 0.5, 0x9aa0ac, 10);
+    lmFlat(x - 9, z, 6, 12, 0xa8adb8);
+    lmFlat(x + 9, z, 6, 12, 0xa8adb8);
+}
+
+// Palm / tree / lamp props (no collision except trunk skip - small)
+function lmPalm(x, z, s) {
+    s = s || 1;
+    lmCyl(x, 2.2 * s, z, 0.16 * s, 0.22 * s, 4.4 * s, 0x6e4f30, 7);
+    for (let i = 0; i < 5; i++) {
+        const leaf = new THREE.Mesh(new THREE.PlaneGeometry(2.4 * s, 0.7 * s),
+            new THREE.MeshStandardMaterial({ color: 0x2f7a3a, roughness: 0.9, side: THREE.DoubleSide }));
+        const a = (i / 5) * Math.PI * 2;
+        leaf.position.set(x + Math.cos(a) * 1.0 * s, 4.5 * s, z + Math.sin(a) * 1.0 * s);
+        leaf.rotation.y = -a;
+        leaf.rotation.z = 0.5;
+        scene.add(leaf);
+        levelBuildings.push(leaf);
+    }
+}
+
+function lmTree(x, z, s) {
+    s = s || 1;
+    lmCyl(x, 1.0 * s, z, 0.18 * s, 0.24 * s, 2.0 * s, 0x5a4028, 7);
+    const c = new THREE.Mesh(new THREE.SphereGeometry(1.5 * s, 8, 7),
+        lmMat(0x2f6e35));
+    c.position.set(x, 2.8 * s, z);
+    c.castShadow = true;
+    scene.add(c);
+    levelBuildings.push(c);
+}
+
+function lmLamp(x, z) {
+    lmCyl(x, 2.2, z, 0.08, 0.1, 4.4, 0x30343e, 6);
+    const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffe9a3 }));
+    b.position.set(x, 4.5, z);
+    scene.add(b);
+    levelBuildings.push(b);
+}
+
+// White church with tower + cross (Panjim)
+function lmChurch(x, z, ry) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = ry || 0;
+    const W = 0xf2efe8;
+    const mk = (w, h, d, px, py, pz, c) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lmMat(c || W));
+        m.position.set(px, py, pz);
+        m.castShadow = true;
+        g.add(m);
+        return m;
+    };
+    mk(10, 5, 14, 0, 2.5, 0);
+    mk(11, 0.4, 15, 0, 5.2, 0, 0xb0503c);
+    mk(3, 9, 3, 0, 4.5, 8);
+    mk(3.6, 0.5, 3.6, 0, 9.2, 8, 0xb0503c);
+    const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.25, 1.6, 0.25), lmMat(0x6e4525));
+    crossV.position.set(0, 10.2, 8);
+    const crossH = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.25, 0.25), lmMat(0x6e4525));
+    crossH.position.set(0, 10.2, 8);
+    g.add(crossV); g.add(crossH);
+    mk(2.2, 3.2, 0.3, 0, 1.6, 7.1, 0x4a3220);
+    for (let i = -1; i <= 1; i++) {
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.8),
+            new THREE.MeshBasicMaterial({ color: 0x9fd4e8 }));
+        win.position.set(i * 3, 3, 7.06);
+        g.add(win);
+    }
+    scene.add(g);
+    g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
+    buildingBoxes.push({ minX: x - 6, maxX: x + 6, minZ: z - 8, maxZ: z + 8, h: 9, cx: x, cz: z });
+}
+
+// Pink facade wall with window rows (Hawa Mahal style)
+function lmFacade(x, z, w, h, ry) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = ry || 0;
+    const pink = 0xd7746e;
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w, h, 1.2), lmMat(pink));
+    wall.position.y = h / 2;
+    wall.castShadow = true;
+    g.add(wall);
+    for (let r = 0; r < Math.floor(h / 2.2); r++) {
+        for (let i = 0; i < Math.floor(w / 1.6); i++) {
+            const win = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.9),
+                new THREE.MeshBasicMaterial({ color: 0xfff2cf }));
+            win.position.set(-w / 2 + 1 + i * 1.6, 1.8 + r * 2.2, 0.65);
+            g.add(win);
+        }
+    }
+    for (let i = 0; i <= Math.floor(w / 2); i++) {
+        const mer = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 1.3), lmMat(0xb85a54));
+        mer.position.set(-w / 2 + i * 2, h + 0.4, 0);
+        g.add(mer);
+    }
+    scene.add(g);
+    g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
+    buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - 1.5, maxZ: z + 1.5, h, cx: x, cz: z });
+}
+
+// Hill with fort wall (Jaipur backdrop)
+function lmHillFort(x, z, r) {
+    const hill = new THREE.Mesh(new THREE.ConeGeometry(r, r * 0.7, 12), lmMat(0x9a7a52));
+    hill.position.set(x, r * 0.32, z);
+    scene.add(hill);
+    levelBuildings.push(hill);
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.45, r * 0.5, 3, 12, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xc0836a, roughness: 0.9, side: THREE.DoubleSide }));
+    wall.position.set(x, r * 0.66, z);
+    scene.add(wall);
+    levelBuildings.push(wall);
+}
+
+// Rock island memorial in the sea (Kanyakumari)
+function lmMemorial(x, z) {
+    const rock = new THREE.Mesh(new THREE.ConeGeometry(9, 7, 9), lmMat(0x6e5a50));
+    rock.position.set(x, 1.5, z);
+    rock.castShadow = true;
+    scene.add(rock);
+    levelBuildings.push(rock);
+    lmBox(x, 5.6, z, 7, 1.2, 7, 0xc8b088, true);
+    lmBox(x - 2, 7.5, z, 1.2, 2.6, 1.2, 0xb09a78, false);
+    lmBox(x + 2, 7.5, z, 1.2, 2.6, 1.2, 0xb09a78, false);
+    lmBox(x, 9.2, z, 6, 0.8, 4.5, 0xa88a68, false);
+    const st = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.2, 8), lmMat(0x8a6a4a));
+    st.position.set(x, 10.6, z);
+    scene.add(st);
+    levelBuildings.push(st);
+}
+
+// Big arched hall + minarets (Bara Imambara style)
+function lmImambara(x, z, ry) {
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = ry || 0;
+    const C = 0xe8dcc0;
+    const mk = (w, h, d, px, py, pz, c) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lmMat(c || C));
+        m.position.set(px, py, pz);
+        m.castShadow = true;
+        g.add(m);
+        return m;
+    };
+    mk(16, 7, 8, 0, 3.5, 0);
+    mk(4.5, 5.5, 0.6, 0, 2.75, 4.0, 0x3a3f48); // arch recess (dark)
+    mk(17, 1.0, 9, 0, 7.5, 0, 0xd8ccb0);
+    for (const sx of [-1, 1]) {
+        const t = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 9, 8), lmMat(C));
+        t.position.set(sx * 9.5, 4.5, 3);
+        t.castShadow = true;
+        g.add(t);
+        const cap = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 6, 0, Math.PI * 2, 0, Math.PI / 2), lmMat(0x9a8a70));
+        cap.position.set(sx * 9.5, 9, 3);
+        g.add(cap);
+    }
+    scene.add(g);
+    g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
+    buildingBoxes.push({ minX: x - 11, maxX: x + 11, minZ: z - 5, maxZ: z + 5, h: 8, cx: x, cz: z });
+}
+
+function buildCitySet(ci, arena) {
+    const excl = [];
+    const keep = (x, z, r) => excl.push({ x, z, r });
+    // crossing roads through the middle
+    lmFlat(0, 0, arena * 2.4, 6, 0x33363e);
+    lmFlat(0, 0, 6, arena * 2.4, 0x33363e);
+    const lampLine = (n, alongX, fixed) => {
+        for (let i = 0; i < n; i++) {
+            const t = -arena + (i + 0.5) * (2 * arena / n);
+            if (Math.abs(t) < 6) continue;
+            lmLamp(alongX ? t : fixed, alongX ? fixed : t);
+        }
+    };
+    if (ci === 0) {
+        // MUMBAI - Marine Drive: sea to the north, curved promenade, Gateway arch
+        lmFlat(0, -arena - 45, 340, 110, 0x2a6a9a, 0.04);
+        lmFlat(0, -arena - 6, 200, 8, 0xc8bfa8, 0.03);
+        for (let i = 0; i < 9; i++) lmPalm(-80 + i * 20, -arena - 2, 1);
+        lmArch(0, -arena * 0.42, 9, 0xc8a86a);
+        keep(0, -arena * 0.42, 10);
+        lampLine(8, true, 5);
+        for (let i = 0; i < 6; i++) lmPalm(-arena + 10 + i * 22, 8, 0.9);
+    } else if (ci === 1) {
+        // KOLKATA - Howrah Bridge over the Hooghly (river strip north-south)
+        lmFlat(28, 0, 26, 320, 0x2a5a7a, 0.04);
+        lmBridge(28, 0, 36, true);
+        keep(28, 0, 16);
+        lampLine(8, false, 5);
+        for (let i = 0; i < 7; i++) { lmTree(-arena + 12 + i * 20, -10 - (i % 2) * 14, 1); }
+    } else if (ci === 2) {
+        // CHENNAI - Marina Beach: sand foreground, sea east, lighthouse
+        lmFlat(arena + 40, 0, 120, 340, 0xd8c090, 0.03);
+        lmFlat(arena + 110, 0, 120, 340, 0x2a7a9e, 0.04);
+        lmTower(-arena * 0.4, arena * 0.3, 4, 16, 0xc23c2e, 0xe8e4da);
+        keep(-arena * 0.4, arena * 0.3, 7);
+        for (let i = 0; i < 8; i++) lmPalm(-arena + 14 + i * 18, -arena * 0.5 + (i % 3) * 12, 1);
+        lampLine(6, true, -5);
+    } else if (ci === 3) {
+        // DELHI - India Gate on the lawns
+        lmFlat(0, -arena * 0.1, 60, arena * 1.4, 0x4a7a3f, 0.025);
+        lmArch(0, -arena * 0.42, 11, 0xc86a4a);
+        keep(0, -arena * 0.42, 11);
+        lmBox(-arena * 0.5, 1.5, -arena * 0.42, 14, 3, 2, 0xa85438, true);
+        lmBox(arena * 0.5, 1.5, -arena * 0.42, 14, 3, 2, 0xa85438, true);
+        for (let i = 0; i < 8; i++) { lmTree(-36 + i * 10, -arena * 0.1 + ((i % 2) ? 18 : -18), 1.1); }
+        lampLine(8, true, 5);
+    } else if (ci === 4) {
+        // CHANDIGARH - Sector 17 plaza + fountain
+        lmFountain(0, -arena * 0.35);
+        keep(0, -arena * 0.35, 9);
+        lmFlat(0, -arena * 0.35, 30, 30, 0xc4c8d0, 0.025);
+        lampLine(8, true, 5);
+        lampLine(8, false, 5);
+        for (let i = 0; i < 8; i++) { lmTree(-arena + 12 + i * 17, arena * 0.45, 0.9); }
+    } else if (ci === 5) {
+        // BENGALURU - MG Road: glass towers + trees
+        lmTower(-arena * 0.35, -arena * 0.35, 7, 22, 0x7ab8d4, 0x2a4a5a);
+        keep(-arena * 0.35, -arena * 0.35, 7);
+        lmTower(arena * 0.4, arena * 0.25, 6, 17, 0x8ac4dc, 0x304a5e);
+        keep(arena * 0.4, arena * 0.25, 6);
+        for (let i = 0; i < 10; i++) { lmTree(-arena + 10 + i * 15, -12 + (i % 2) * 24, 1.2); }
+        lampLine(8, false, -5);
+    } else if (ci === 6) {
+        // PANJIM - Mandovi riverfront + white church
+        lmFlat(0, -arena - 40, 340, 100, 0x2a7a8a, 0.04);
+        lmFlat(0, -arena - 4, 200, 6, 0xd8cba8, 0.03);
+        lmChurch(arena * 0.3, -arena * 0.35, -0.3);
+        keep(arena * 0.3, -arena * 0.35, 11);
+        for (let i = 0; i < 9; i++) lmPalm(-90 + i * 22, -arena + 6, 1.1);
+        lampLine(7, true, 5);
+    } else if (ci === 7) {
+        // JAIPUR - Hawa Mahal facade + fort hill behind
+        lmFacade(0, -arena * 0.45, 26, 12, 0);
+        keep(0, -arena * 0.45, 12);
+        lmHillFort(0, -arena - 55, 42);
+        for (let i = 0; i < 6; i++) { lmTree(-arena + 14 + i * 22, arena * 0.4, 0.9); }
+        lampLine(7, true, 5);
+    } else if (ci === 8) {
+        // LUCKNOW - Bara Imambara + gardens
+        lmImambara(0, -arena * 0.4, 0);
+        keep(0, -arena * 0.4, 13);
+        lmFlat(0, -arena * 0.4 + 16, 44, 12, 0x4a7a3f, 0.025);
+        for (let i = 0; i < 8; i++) { lmTree(-30 + i * 9, -arena * 0.4 + 16 + ((i % 2) ? 4 : -4), 0.8); }
+        lampLine(7, true, -5);
+    } else {
+        // KANYAKUMARI - sea + Rock Memorial + sunset palms
+        lmFlat(0, -arena - 55, 340, 130, 0xc86a3c, 0.04);
+        lmMemorial(18, -arena - 45);
+        keep(18, -arena - 45, 12);
+        for (let i = 0; i < 8; i++) lmPalm(-84 + i * 24, -arena + 4, 1);
+        lampLine(6, true, 5);
+    }
+    return excl;
+}
+
+function buildEnemyMesh(cfg) {
+    const body = new THREE.Mesh(
+        new THREE.CapsuleGeometry(0.4, 1.2, 4, 8),
+        new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.6 })
+    );
+    body.castShadow = true;
+    const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3A3A3A })
+    );
+    head.position.y = 1.0;
+    body.add(head);
+    const visor = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 0.1),
+        new THREE.MeshBasicMaterial({ color: 0xFF2020 })
+    );
+    visor.position.set(0, 0.05, 0.28);
+    head.add(visor);
+    const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.08, 0.08, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x2A2A2A })
+    );
+    arm.position.set(0.35, -0.1, 0.2);
+    body.add(arm);
+    return body;
+}
+
 function generateLevel(lvl) {
     clearLevel();
     buildingBoxes = [];
@@ -404,6 +824,8 @@ function generateLevel(lvl) {
     levelBuildings.push(gnd);
     const bCount = 20 + lvl * 3;
     const arena = 50 + lvl * 2;
+    const excl = buildCitySet(cityIdx, arena);
+    const nearExcl = (x, z, pad) => excl.some(e => Math.hypot(x - e.x, z - e.z) < e.r + (pad || 0));
     for (let i = 0; i < bCount; i++) {
         const w = 3 + Math.random() * 6;
         const h = 4 + Math.random() * 15;
@@ -411,6 +833,7 @@ function generateLevel(lvl) {
         const x = (Math.random() - 0.5) * arena * 2;
         const z = (Math.random() - 0.5) * arena * 2;
         if (Math.abs(x) < 8 && Math.abs(z) < 8) continue;
+        if (nearExcl(x, z, Math.max(w, d) / 2)) continue;
         const geo = new THREE.BoxGeometry(w, h, d);
         const mat = new THREE.MeshStandardMaterial({ color: Math.random() > 0.5 ? city.bld : city.accent, roughness: 0.8 });
         const bld = new THREE.Mesh(geo, mat);
@@ -419,7 +842,7 @@ function generateLevel(lvl) {
         bld.receiveShadow = true;
         scene.add(bld);
         levelBuildings.push(bld);
-        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, h, cx: x, cz: z });
     }
     for (let i = 0; i < 12 + lvl; i++) {
         const w = 1.5 + Math.random() * 2;
@@ -428,6 +851,7 @@ function generateLevel(lvl) {
         const x = (Math.random() - 0.5) * arena * 1.5;
         const z = (Math.random() - 0.5) * arena * 1.5;
         if (Math.abs(x) < 5 && Math.abs(z) < 5) continue;
+        if (nearExcl(x, z, 2)) continue;
         const geo = new THREE.BoxGeometry(w, h, d);
         const mat = new THREE.MeshStandardMaterial({ color: 0x4A4A4A, roughness: 0.7 });
         const cv = new THREE.Mesh(geo, mat);
@@ -435,7 +859,7 @@ function generateLevel(lvl) {
         cv.castShadow = true;
         scene.add(cv);
         levelBuildings.push(cv);
-        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2 });
+        buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - d / 2, maxZ: z + d / 2, h, cx: x, cz: z });
     }
     const eCount = getLevelEnemyCount(lvl);
     const availTypes = getLevelEnemyTypes(lvl);
@@ -448,38 +872,43 @@ function generateLevel(lvl) {
         const dist = 15 + Math.random() * (arena - 15);
         const ex = Math.cos(angle) * dist;
         const ez = Math.sin(angle) * dist;
-        const body = new THREE.Mesh(
-            new THREE.CapsuleGeometry(0.4, 1.2, 4, 8),
-            new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.6 })
-        );
+        const body = buildEnemyMesh(cfg);
         body.position.set(ex, 1.0, ez);
-        body.castShadow = true;
-        const head = new THREE.Mesh(
-            new THREE.SphereGeometry(0.3, 8, 8),
-            new THREE.MeshStandardMaterial({ color: 0x3A3A3A })
-        );
-        head.position.y = 1.0;
-        body.add(head);
-        const visor = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.3, 0.1),
-            new THREE.MeshBasicMaterial({ color: 0xFF2020 })
-        );
-        visor.position.set(0, 0.05, 0.28);
-        head.add(visor);
-        const arm = new THREE.Mesh(
-            new THREE.BoxGeometry(0.08, 0.08, 0.5),
-            new THREE.MeshStandardMaterial({ color: 0x2A2A2A })
-        );
-        arm.position.set(0.35, -0.1, 0.2);
-        body.add(arm);
         scene.add(body);
         enemies.push({
             mesh: body, type, hp: cfg.hp, maxHp: cfg.hp, speed: cfg.speed,
             damage: cfg.damage * dmgScale, fireRate: cfg.fireRate * rateScale, score: cfg.score,
             lastFire: 0, state: 'patrol',
             patrolTarget: new THREE.Vector3((Math.random()-0.5)*arena, 0, (Math.random()-0.5)*arena),
-            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true
+            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true, roof: false
         });
+    }
+    // Rooftop snipers: max 2 per level, from level 4. Stationary, long range.
+    if (lvl >= 4) {
+        const roofs = buildingBoxes
+            .filter(b => (b.h || 0) >= 8 && Math.hypot(b.cx || 0, b.cz || 0) > 12)
+            .sort((a, b) => b.h - a.h);
+        const spots = [];
+        for (const r of roofs) {
+            if (spots.length >= 2) break;
+            if (spots.some(s => Math.hypot(s.cx - r.cx, s.cz - r.cz) < 20)) continue;
+            spots.push(r);
+        }
+        const scfg = ENEMY_TYPES.sniper;
+        for (const s of spots) {
+            const body = buildEnemyMesh(scfg);
+            const roofY = s.h + 1.0;
+            body.position.set(s.cx, roofY, s.cz);
+            scene.add(body);
+            enemies.push({
+                mesh: body, type: 'sniper', hp: scfg.hp, maxHp: scfg.hp, speed: 0,
+                damage: scfg.damage * dmgScale, fireRate: scfg.fireRate * rateScale, score: scfg.score + 20,
+                lastFire: 0, state: 'roof',
+                patrolTarget: new THREE.Vector3(s.cx, 0, s.cz),
+                alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY
+            });
+        }
+        if (spots.length > 0) showBanner('⚠ SNIPERS ON THE ROOFTOPS — WATCH THE SKYLINE', 3500);
     }
     for (let i = 0; i < 5 + lvl; i++) {
         const px = (Math.random() - 0.5) * arena;
@@ -577,19 +1006,28 @@ function setupInput() {
 }
 
 function switchWeapon(idx) {
-    if (idx >= 0 && idx < weapons.length && idx !== currentWeaponIdx) {
-        currentWeaponIdx = idx;
-        weapons[idx].reloading = false;
-        showViewmodel(idx);
-        playSound('reload');
-        updateHUD();
+    if (idx < 0 || idx >= weapons.length || idx === currentWeaponIdx) return;
+    if (!isUnlocked(idx)) {
+        showBanner('LOCKED — REACH LEVEL ' + WEAPONS[idx].unlock + ' TO UNLOCK ' + WEAPONS[idx].name, 2200);
+        return;
     }
+    currentWeaponIdx = idx;
+    weapons[idx].reloading = false;
+    aiming = false;
+    rmbDown = false;
+    const sc = document.getElementById('scopeOverlay');
+    if (sc) sc.classList.remove('show');
+    showViewmodel(idx);
+    playSound('reload');
+    updateHUD();
 }
 
 function cycleWeapon(dir) {
     const n = weapons.length;
-    const next = (currentWeaponIdx + dir + n) % n;
-    switchWeapon(next);
+    for (let step = 1; step <= n; step++) {
+        const next = (currentWeaponIdx + dir * step + n * 10) % n;
+        if (isUnlocked(next)) { switchWeapon(next); return; }
+    }
 }
 
 function reloadWeapon() {
@@ -629,23 +1067,22 @@ function getMuzzleWorldPos() {
 }
 
 function triggerMuzzleFlash(kick) {
-    muzzleFlashUntil = Date.now() + 55;
+    muzzleFlashUntil = Date.now() + 45;
     const tip = gunTips[currentGunId()];
-    let flashPos = null;
     if (tip) {
         tip.updateWorldMatrix(true, false);
-        flashPos = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
+        const flashPos = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
         const local = camera.worldToLocal(flashPos.clone());
         muzzleFlash.position.copy(local);
         muzzleLight.position.copy(local);
     }
     if (muzzleFlash) {
-        muzzleFlash.material.opacity = 0.95;
+        muzzleFlash.material.opacity = 0.6;
         muzzleFlash.rotation.z = Math.random() * Math.PI;
-        const s = 0.8 + Math.random() * 0.6 + (kick || 0);
+        const s = 0.38 + Math.random() * 0.22 + (kick || 0) * 0.35;
         muzzleFlash.scale.set(s, s, 1);
     }
-    if (muzzleLight) muzzleLight.intensity = 6;
+    if (muzzleLight) muzzleLight.intensity = 2.2;
 }
 
 function spawnTracer(from, to, colorHex, lifeMs, width) {
@@ -1026,16 +1463,16 @@ function spawnDeathEffect(pos) {
 }
 
 function spawnImpact(pos, normal) {
-    for (let i = 0; i < 3; i++) {
-        const geo = new THREE.SphereGeometry(0.05, 4, 4);
-        const mat = new THREE.MeshBasicMaterial({ color: 0xCCCCCC });
+    for (let i = 0; i < 2; i++) {
+        const geo = new THREE.SphereGeometry(0.03, 4, 4);
+        const mat = new THREE.MeshBasicMaterial({ color: 0xCCCCCC, transparent: true, opacity: 0.85 });
         const spark = new THREE.Mesh(geo, mat);
         spark.position.copy(pos);
         scene.add(spark);
         const vel = new THREE.Vector3(
-            (Math.random() - 0.5) * 2 + normal.x,
-            Math.random() * 2 + normal.y,
-            (Math.random() - 0.5) * 2 + normal.z
+            (Math.random() - 0.5) * 1.4 + normal.x,
+            Math.random() * 1.4 + normal.y,
+            (Math.random() - 0.5) * 1.4 + normal.z
         );
         const start = Date.now();
         projectiles.push({
@@ -1044,7 +1481,8 @@ function spawnImpact(pos, normal) {
                 const dt = 0.016;
                 spark.position.add(vel.clone().multiplyScalar(dt));
                 vel.y -= 9.8 * dt;
-                if (Date.now() - start > 300) scene.remove(spark);
+                mat.opacity = Math.max(0, 0.85 * (1 - (Date.now() - start) / 220));
+                if (Date.now() - start > 220) scene.remove(spark);
             }
         });
     }
@@ -1054,6 +1492,38 @@ function updateEnemies(dt) {
     const now = Date.now();
     for (const e of enemies) {
         if (!e.alive) continue;
+        if (e.roof) {
+            // Stationary rooftop sniper: holds position, tracks and fires at long range
+            const toPlayer = new THREE.Vector3().subVectors(player.pos, e.mesh.position);
+            const dist = toPlayer.length();
+            const dirToPlayer = toPlayer.normalize();
+            const head = e.mesh.children[0];
+            if (head) {
+                head.lookAt(e.mesh.position.x + dirToPlayer.x, e.mesh.position.y + 1.0 + dirToPlayer.y, e.mesh.position.z + dirToPlayer.z);
+            }
+            if (dist < 60 && now - e.lastFire > e.fireRate) {
+                const gunPos = new THREE.Vector3().copy(e.mesh.position);
+                gunPos.y += 0.8;
+                if (hasLineOfSight(gunPos, new THREE.Vector3().copy(player.pos))) {
+                    e.lastFire = now;
+                    const hitChance = Math.max(0.15, 0.7 - dist * 0.008);
+                    if (Math.random() < hitChance) {
+                        const dmg = e.damage * (0.8 + Math.random() * 0.4);
+                        player.health -= dmg;
+                        playSound('hurt');
+                        showDamageOverlay();
+                        if (player.health <= 0) {
+                            player.health = 0;
+                            gameOver();
+                        }
+                        updateHUD();
+                    }
+                    spawnEnemyBullet(e.mesh.position.clone());
+                }
+            }
+            e.mesh.position.y = e.roofY;
+            continue;
+        }
         const toPlayer = new THREE.Vector3().subVectors(player.pos, e.mesh.position);
         const dist = toPlayer.length();
         const dirToPlayer = toPlayer.normalize();
@@ -1138,7 +1608,7 @@ function updateEnemies(dt) {
 
 function spawnEnemyBullet(from) {
     // Elongated glowing tracer oriented along travel direction - reads as a real round
-    const geo = new THREE.BoxGeometry(0.05, 0.05, 0.7);
+    const geo = new THREE.BoxGeometry(0.035, 0.035, 0.5);
     const mat = new THREE.MeshBasicMaterial({
         color: 0xff7043, transparent: true, opacity: 0.95,
         blending: THREE.AdditiveBlending, depthWrite: false
@@ -1309,7 +1779,8 @@ function updateHUD() {
     document.getElementById('hudWeapon').textContent = w.name;
     document.getElementById('hudAmmo').textContent = w.ammo;
     document.querySelector('.hud-ammo small').textContent = '/ ' + w.mag;
-    document.getElementById('hudLevel').textContent = 'LEVEL ' + level + ' - ' + CITIES[(level - 1) % CITIES.length].name.toUpperCase();
+    const cityNow = CITIES[(level - 1) % CITIES.length];
+    document.getElementById('hudLevel').textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
     document.getElementById('hudScore').textContent = 'SCORE: ' + score;
     document.getElementById('hudKills').textContent = 'KILLS: ' + kills;
     document.getElementById('medkitIndicator').textContent = 'MEDKITS: ' + player.medkits;
@@ -1322,8 +1793,10 @@ function updateHUD() {
     slotsEl.innerHTML = '';
     weapons.forEach((wp, i) => {
         const slot = document.createElement('div');
-        slot.className = 'weapon-slot' + (i === currentWeaponIdx ? ' active' : '');
-        slot.textContent = wp.slot;
+        const locked = !isUnlocked(i);
+        slot.className = 'weapon-slot' + (i === currentWeaponIdx ? ' active' : '') + (locked ? ' locked' : '');
+        slot.textContent = locked ? '🔒' : wp.slot;
+        slot.title = locked ? (wp.name + ' — unlocks at level ' + wp.unlock) : wp.name;
         slotsEl.appendChild(slot);
     });
 }
@@ -1472,13 +1945,22 @@ function winLevel() {
         document.getElementById('winScore').textContent = 'FINAL SCORE: ' + score;
         document.exitPointerLock();
     } else {
+        const prevLevel = level;
         level++;
         player.health = 100;
         player.medkits = Math.min(player.medkits + 1, 5);
         throwables.grenade = Math.min(throwables.grenade + 1, 5);
         throwables.molotov = Math.min(throwables.molotov + 1, 4);
         weapons.forEach(w => w.ammo = w.mag);
+        const fresh = WEAPONS.filter(w => w.unlock > prevLevel && w.unlock <= level);
         generateLevel(level);
+        // auto-equip first newly unlocked gun so it feels like a reward
+        if (fresh.length > 0) {
+            const idx = WEAPONS.indexOf(fresh[0]);
+            currentWeaponIdx = idx;
+            showViewmodel(idx);
+            showBanner('★ NEW WEAPON UNLOCKED: ' + fresh.map(w => w.name + ' (press ' + w.slot + ')').join(' · '), 4500);
+        }
         updateHUD();
     }
 }

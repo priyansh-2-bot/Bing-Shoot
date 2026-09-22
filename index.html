@@ -154,6 +154,18 @@
             border-color: #00E5A0; color: #00E5A0;
             background: rgba(0,229,160,0.1);
         }
+        .weapon-slot.locked {
+            opacity: 0.35; border-style: dashed;
+        }
+
+        #unlockBanner {
+            position: absolute; top: 22%; left: 50%; transform: translateX(-50%) scale(0.9);
+            font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #FFD740;
+            background: rgba(10,12,20,0.85); border: 1px solid rgba(255,215,64,0.5);
+            border-radius: 8px; padding: 12px 28px; white-space: nowrap;
+            opacity: 0; transition: opacity 0.3s, transform 0.3s;
+        }
+        #unlockBanner.show { opacity: 1; transform: translateX(-50%) scale(1); }
 
         .medkit-indicator {
             position: absolute; bottom: 20px; right: 20px;
@@ -264,6 +276,7 @@
     </div>
 
     <div id="hud" class="hidden">
+        <div id="unlockBanner"></div>
         <div class="crosshair"></div>
         <div class="hitmarker" id="hitmarker"></div>
         <div class="damage-overlay" id="damageOverlay"></div>
