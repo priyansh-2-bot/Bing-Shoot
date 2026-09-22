@@ -119,6 +119,10 @@ let rmbDown = false;
 let throwables = { grenade: 3, molotov: 2 };
 let liveThrowables = [];
 let fireZones = [];
+let spawnProtUntil = 0;
+let intermissionUntil = 0;
+let lastCountShown = -1;
+let levelRoofSnipers = 0;
 
 function boxContains(box, x, z) {
     return x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ;
@@ -824,6 +828,8 @@ function generateLevel(lvl) {
     levelBuildings.push(gnd);
     const bCount = 20 + lvl * 3;
     const arena = 50 + lvl * 2;
+    // land the player at the map edge, facing the center — never in the middle of the pack
+    const spawnX = arena * 0.35, spawnZ = arena * 0.35;
     const excl = buildCitySet(cityIdx, arena);
     const nearExcl = (x, z, pad) => excl.some(e => Math.hypot(x - e.x, z - e.z) < e.r + (pad || 0));
     for (let i = 0; i < bCount; i++) {
@@ -833,6 +839,7 @@ function generateLevel(lvl) {
         const x = (Math.random() - 0.5) * arena * 2;
         const z = (Math.random() - 0.5) * arena * 2;
         if (Math.abs(x) < 8 && Math.abs(z) < 8) continue;
+        if (Math.hypot(x - spawnX, z - spawnZ) < 7) continue;
         if (nearExcl(x, z, Math.max(w, d) / 2)) continue;
         const geo = new THREE.BoxGeometry(w, h, d);
         const mat = new THREE.MeshStandardMaterial({ color: Math.random() > 0.5 ? city.bld : city.accent, roughness: 0.8 });
@@ -851,6 +858,7 @@ function generateLevel(lvl) {
         const x = (Math.random() - 0.5) * arena * 1.5;
         const z = (Math.random() - 0.5) * arena * 1.5;
         if (Math.abs(x) < 5 && Math.abs(z) < 5) continue;
+        if (Math.hypot(x - spawnX, z - spawnZ) < 5) continue;
         if (nearExcl(x, z, 2)) continue;
         const geo = new THREE.BoxGeometry(w, h, d);
         const mat = new THREE.MeshStandardMaterial({ color: 0x4A4A4A, roughness: 0.7 });
@@ -870,8 +878,15 @@ function generateLevel(lvl) {
         const cfg = ENEMY_TYPES[type];
         const angle = Math.random() * Math.PI * 2;
         const dist = 15 + Math.random() * (arena - 15);
-        const ex = Math.cos(angle) * dist;
-        const ez = Math.sin(angle) * dist;
+        let ex = Math.cos(angle) * dist;
+        let ez = Math.sin(angle) * dist;
+        // nobody spawns on top of the player — min 25m from the drop point
+        const fromSpawn = Math.hypot(ex - spawnX, ez - spawnZ);
+        if (fromSpawn < 25) {
+            const push = 25 - fromSpawn;
+            ex += ((ex - spawnX) / (fromSpawn || 1)) * push;
+            ez += ((ez - spawnZ) / (fromSpawn || 1)) * push;
+        }
         const body = buildEnemyMesh(cfg);
         body.position.set(ex, 1.0, ez);
         scene.add(body);
@@ -884,6 +899,7 @@ function generateLevel(lvl) {
         });
     }
     // Rooftop snipers: max 2 per level, from level 4. Stationary, long range.
+    levelRoofSnipers = 0;
     if (lvl >= 4) {
         const roofs = buildingBoxes
             .filter(b => (b.h || 0) >= 8 && Math.hypot(b.cx || 0, b.cz || 0) > 12)
@@ -908,7 +924,7 @@ function generateLevel(lvl) {
                 alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY
             });
         }
-        if (spots.length > 0) showBanner('⚠ SNIPERS ON THE ROOFTOPS — WATCH THE SKYLINE', 3500);
+        levelRoofSnipers = spots.length;
     }
     for (let i = 0; i < 5 + lvl; i++) {
         const px = (Math.random() - 0.5) * arena;
@@ -925,11 +941,12 @@ function generateLevel(lvl) {
         scene.add(mesh);
         pickups.push({ mesh, type: ptype });
     }
-    player.pos.set(0, PLAYER_HEIGHT, 0);
+    player.pos.set(spawnX, PLAYER_HEIGHT, spawnZ);
     player.vel.set(0, 0, 0);
     camera.position.copy(player.pos);
-    yaw = 0;
+    yaw = Math.atan2(spawnX, spawnZ);
     pitch = 0;
+    spawnProtUntil = Date.now() + 3000;
     updateHUD();
 }
 
@@ -1507,7 +1524,7 @@ function updateEnemies(dt) {
                 if (hasLineOfSight(gunPos, new THREE.Vector3().copy(player.pos))) {
                     e.lastFire = now;
                     const hitChance = Math.max(0.15, 0.7 - dist * 0.008);
-                    if (Math.random() < hitChance) {
+                    if (Date.now() >= spawnProtUntil && Math.random() < hitChance) {
                         const dmg = e.damage * (0.8 + Math.random() * 0.4);
                         player.health -= dmg;
                         playSound('hurt');
@@ -1565,7 +1582,7 @@ function updateEnemies(dt) {
                 if (hasLineOfSight(gunPos, playerAim)) {
                     e.lastFire = now;
                     const hitChance = Math.max(0.1, 0.8 - dist * 0.015);
-                    if (Math.random() < hitChance) {
+                    if (Date.now() >= spawnProtUntil && Math.random() < hitChance) {
                         const dmg = e.damage * (0.8 + Math.random() * 0.4);
                         player.health -= dmg;
                         playSound('hurt');
@@ -1698,7 +1715,6 @@ function updatePlayer(dt) {
     if (scopeEl) scopeEl.classList.toggle('show', !!isScoped);
     const chEl = document.querySelector('.crosshair');
     if (chEl) chEl.style.opacity = isScoped ? '0' : (aiming ? '0.4' : '1');
-    if (scopeEl) scopeEl.style.opacity = isScoped ? '1' : '0';
     Object.values(viewmodels).forEach(v => { if (v) v.visible = !isScoped && v === viewmodels[currentGunId()]; });
     // Gun bob + recoil kick on viewmodels (suppressed while aiming)
     const moving = move.length() > 0 && player.onGround;
@@ -1893,6 +1909,8 @@ function startDeathAnim() {
     rmbDown = false;
     const sc0 = document.getElementById('scopeOverlay');
     if (sc0) sc0.classList.remove('show');
+    const pr0 = document.getElementById('protIndicator');
+    if (pr0) pr0.style.display = 'none';
     moveForward = moveBack = moveLeft = moveRight = false;
     Object.values(viewmodels).forEach(v => { v.visible = false; });
     if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
@@ -1945,22 +1963,31 @@ function winLevel() {
         document.getElementById('winScore').textContent = 'FINAL SCORE: ' + score;
         document.exitPointerLock();
     } else {
-        const prevLevel = level;
         level++;
         player.health = 100;
         player.medkits = Math.min(player.medkits + 1, 5);
         throwables.grenade = Math.min(throwables.grenade + 1, 5);
         throwables.molotov = Math.min(throwables.molotov + 1, 4);
         weapons.forEach(w => w.ammo = w.mag);
-        const fresh = WEAPONS.filter(w => w.unlock > prevLevel && w.unlock <= level);
+        // keep the player's current weapon — just tell them what's new
+        aiming = false; rmbDown = false; mouseDown = false;
+        moveForward = moveBack = moveLeft = moveRight = false;
+        const sc0 = document.getElementById('scopeOverlay');
+        if (sc0) sc0.classList.remove('show');
         generateLevel(level);
-        // auto-equip first newly unlocked gun so it feels like a reward
-        if (fresh.length > 0) {
-            const idx = WEAPONS.indexOf(fresh[0]);
-            currentWeaponIdx = idx;
-            showViewmodel(idx);
-            showBanner('★ NEW WEAPON UNLOCKED: ' + fresh.map(w => w.name + ' (press ' + w.slot + ')').join(' · '), 4500);
-        }
+        // 5-second breather before the drop — new map renders behind, enemies frozen
+        gameState = 'intermission';
+        intermissionUntil = Date.now() + 5000;
+        lastCountShown = -1;
+        const ncity = CITIES[(level - 1) % CITIES.length];
+        document.getElementById('interLevel').textContent = 'LEVEL ' + level;
+        document.getElementById('interPlace').textContent = ncity.name.toUpperCase() + (ncity.place ? ' · ' + ncity.place.toUpperCase() : '');
+        const fresh = WEAPONS.filter(w => w.unlock === level);
+        const bits = [];
+        if (fresh.length > 0) bits.push('★ NEW WEAPON: ' + fresh.map(w => w.name + ' — press ' + w.slot).join(' · '));
+        if (levelRoofSnipers > 0) bits.push('⚠ ' + levelRoofSnipers + ' SNIPER' + (levelRoofSnipers > 1 ? 'S' : '') + ' ON THE ROOFTOPS');
+        document.getElementById('interUnlock').textContent = bits.join('   ·   ');
+        document.getElementById('intermission').classList.add('show');
         updateHUD();
     }
 }
@@ -1968,6 +1995,7 @@ function winLevel() {
 function restartGame() {
     document.getElementById('gameOverScreen').classList.remove('show');
     document.getElementById('winScreen').classList.remove('show');
+    document.getElementById('intermission').classList.remove('show');
     if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
     deathT = 0;
     level = 1;
@@ -2108,6 +2136,24 @@ function gameLoop() {
         }
         return;
     }
+    if (gameState === 'intermission') {
+        const remain = Math.max(0, intermissionUntil - Date.now());
+        const sec = Math.ceil(remain / 1000);
+        if (sec !== lastCountShown) {
+            lastCountShown = sec;
+            document.getElementById('interCount').textContent = sec > 0 ? sec : 'GO';
+        }
+        updateMinimap();
+        renderer.render(scene, camera);
+        if (remain <= 0) {
+            document.getElementById('intermission').classList.remove('show');
+            gameState = 'playing';
+            spawnProtUntil = Date.now() + 3000;
+            const stagger = Date.now();
+            enemies.forEach(e => { e.lastFire = stagger + Math.random() * 1200; });
+        }
+        return;
+    }
     if (gameState !== 'playing') return;
     const dt = Math.min(clock.getDelta(), 0.05);
     updatePlayer(dt);
@@ -2115,6 +2161,8 @@ function gameLoop() {
     updatePickups();
     updateProjectiles();
     updateMinimap();
+    const protEl = document.getElementById('protIndicator');
+    if (protEl) protEl.style.display = (Date.now() < spawnProtUntil) ? 'block' : 'none';
     const alive = enemies.filter(e => e.alive).length;
     if (alive === 0 && enemies.length > 0) {
         winLevel();

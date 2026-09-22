@@ -185,15 +185,46 @@
         #scopeOverlay.show { opacity: 1; }
         .scope-circle {
             width: 62vmin; height: 62vmin; border-radius: 50%;
-            border: 3px solid rgba(0,0,0,0.9);
-            box-shadow: 0 0 0 200vmax rgba(0,0,0,0.96), inset 0 0 60px rgba(0,0,0,0.6);
+            border: 3px solid #0a0a0a;
+            box-shadow: 0 0 0 200vmax rgba(0,0,0,0.97), inset 0 0 60px rgba(0,0,0,0.6);
             position: relative;
         }
-        .scope-circle::before, .scope-circle::after {
-            content: ''; position: absolute; background: rgba(0,0,0,0.85);
+        .scope-v, .scope-h {
+            position: absolute; background: #39ff88;
+            box-shadow: 0 0 4px #39ff88, 0 0 2px #000;
         }
-        .scope-circle::before { width: 100%; height: 2px; top: 50%; left: 0; }
-        .scope-circle::after { width: 2px; height: 100%; left: 50%; top: 0; }
+        .scope-v { width: 2px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+        .scope-h { height: 2px; width: 100%; top: 50%; left: 0; transform: translateY(-50%); }
+        .scope-dot {
+            position: absolute; width: 8px; height: 8px; border-radius: 50%;
+            background: #39ff88; box-shadow: 0 0 6px #39ff88;
+            left: 50%; top: 50%; transform: translate(-50%, -50%);
+        }
+        .scope-mil {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            background: #39ff88; box-shadow: 0 0 4px #39ff88;
+            transform: translate(-50%, -50%);
+        }
+
+        #protIndicator {
+            position: absolute; bottom: 68px; right: 20px;
+            font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #7df9ff;
+            background: rgba(10,20,30,0.7); border: 1px solid rgba(125,249,255,0.4);
+            border-radius: 4px; padding: 4px 10px; display: none;
+        }
+
+        #intermission {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.72); z-index: 140;
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #intermission.show { display: flex; }
+        .inter-title { font-size: 20px; letter-spacing: 4px; color: #7df9ff; }
+        .inter-level { font-size: 52px; font-weight: 900; letter-spacing: 5px; color: #fff; margin-top: 10px; }
+        .inter-place { font-size: 22px; letter-spacing: 3px; color: #FFD740; margin-top: 6px; }
+        .inter-unlock { font-size: 16px; letter-spacing: 2px; color: #00E5A0; margin-top: 14px; }
+        .inter-count { font-size: 64px; font-weight: 900; color: #00E5A0; margin-top: 18px; }
+        .inter-hint { font-size: 13px; letter-spacing: 1px; color: #9ab; margin-top: 14px; }
 
         .pause-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -307,7 +338,25 @@
 
         <div class="medkit-indicator" id="medkitIndicator">MEDKITS: 2</div>
         <div class="throwable-indicator" id="throwableIndicator">G:GRENADE×3  F:FIRE×2</div>
-        <div id="scopeOverlay"><div class="scope-circle"></div></div>
+        <div id="scopeOverlay"><div class="scope-circle">
+            <div class="scope-v"></div>
+            <div class="scope-h"></div>
+            <div class="scope-dot"></div>
+            <div class="scope-mil" style="left:50%;top:30%;"></div>
+            <div class="scope-mil" style="left:50%;top:70%;"></div>
+            <div class="scope-mil" style="left:30%;top:50%;"></div>
+            <div class="scope-mil" style="left:70%;top:50%;"></div>
+        </div></div>
+        <div id="protIndicator">🛡 SPAWN PROTECTION</div>
+
+    <div id="intermission">
+        <div class="inter-title">INCOMING — NEXT SECTOR</div>
+        <div class="inter-level" id="interLevel">LEVEL 2</div>
+        <div class="inter-place" id="interPlace">CITY · PLACE</div>
+        <div class="inter-unlock" id="interUnlock"></div>
+        <div class="inter-count" id="interCount">5</div>
+        <div class="inter-hint">Take a breath. Check your ammo. Enemies frozen until drop.</div>
+    </div>
     </div>
 
     <div class="game-over-screen" id="gameOverScreen">
