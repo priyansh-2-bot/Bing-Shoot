@@ -85,6 +85,10 @@ let levelBuildings = [];
 let buildingBoxes = [];
 let settings = { sensitivity: 1.0, fov: 75, volume: 80, invertY: false, crosshair: true, minimap: true };
 let paused = false;
+let muzzleLight = null;
+let muzzleFlash = null;
+let muzzleFlashUntil = 0;
+let recoilPitch = 0;
 
 function boxContains(box, x, z) {
     return x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ;
@@ -214,6 +218,19 @@ function initThree() {
     dl.shadow.camera.bottom = -60;
     scene.add(dl);
     clock = new THREE.Clock();
+    scene.add(camera);
+    // Muzzle flash light + quad attached to camera (bottom-right, gun position)
+    muzzleLight = new THREE.PointLight(0xffb457, 0, 12, 2);
+    muzzleLight.position.set(0.35, -0.25, -0.8);
+    camera.add(muzzleLight);
+    const flashGeo = new THREE.PlaneGeometry(0.35, 0.35);
+    const flashMat = new THREE.MeshBasicMaterial({
+        color: 0xffd27a, transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    muzzleFlash = new THREE.Mesh(flashGeo, flashMat);
+    muzzleFlash.position.set(0.35, -0.25, -0.9);
+    camera.add(muzzleFlash);
     minimapCtx = document.getElementById('minimapCanvas').getContext('2d');
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -386,9 +403,11 @@ function setupInput() {
     document.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
     document.addEventListener('mousemove', (e) => {
         if (gameState !== 'playing' || !document.pointerLockElement || paused) return;
-        yaw += e.movementX * 0.002 * settings.sensitivity;
+        // Standard FPS: mouse right (positive movementX) -> look right (yaw decreases
+        // in three.js because +Y rotation turns left). Same for pitch.
+        yaw -= e.movementX * 0.002 * settings.sensitivity;
         const invertY = settings.invertY ? 1 : -1;
-        pitch += e.movementY * 0.002 * settings.sensitivity * invertY;
+        pitch -= e.movementY * 0.002 * settings.sensitivity * invertY;
         pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
     });
 }
@@ -422,6 +441,48 @@ function useMedkit() {
     }
 }
 
+function getMuzzleWorldPos() {
+    const v = new THREE.Vector3(0.35, -0.25, -0.9);
+    camera.updateMatrixWorld();
+    return camera.localToWorld(v);
+}
+
+function triggerMuzzleFlash(kick) {
+    muzzleFlashUntil = Date.now() + 55;
+    if (muzzleFlash) {
+        muzzleFlash.material.opacity = 0.95;
+        muzzleFlash.rotation.z = Math.random() * Math.PI;
+        const s = 0.8 + Math.random() * 0.6 + (kick || 0);
+        muzzleFlash.scale.set(s, s, 1);
+    }
+    if (muzzleLight) muzzleLight.intensity = 6;
+}
+
+function spawnTracer(from, to, colorHex, lifeMs) {
+    const dist = from.distanceTo(to);
+    if (dist < 0.5) return;
+    const mid = new THREE.Vector3().addVectors(from, to).multiplyScalar(0.5);
+    const geo = new THREE.BoxGeometry(0.03, 0.03, dist);
+    const mat = new THREE.MeshBasicMaterial({
+        color: colorHex, transparent: true, opacity: 0.9,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(mid);
+    mesh.lookAt(to);
+    scene.add(mesh);
+    const born = Date.now();
+    const life = lifeMs || 70;
+    projectiles.push({
+        mesh, type: 'tracer', born,
+        update: () => {
+            const t = (Date.now() - born) / life;
+            mat.opacity = Math.max(0, 0.9 * (1 - t));
+            if (t >= 1 && mesh.parent) scene.remove(mesh);
+        }
+    });
+}
+
 function shoot() {
     const w = weapons[currentWeaponIdx];
     const now = Date.now();
@@ -429,6 +490,12 @@ function shoot() {
     w.lastFire = now;
     w.ammo--;
     playSound(w.sfx);
+    const muzzlePos = getMuzzleWorldPos();
+    triggerMuzzleFlash(w.id === 'm1014' ? 0.7 : w.id === 'revolver' ? 0.4 : 0.15);
+    // Camera kick: sharper for shotgun/revolver, small for SMG
+    const kick = w.id === 'm1014' ? 0.028 : w.id === 'revolver' ? 0.02 : w.id === 'ak47' ? 0.011 : 0.007;
+    recoilPitch += kick;
+    yaw += (Math.random() - 0.5) * kick * 0.4;
     const pellets = w.pellets || 1;
     for (let p = 0; p < pellets; p++) {
         const dir = new THREE.Vector3(0, 0, -1);
@@ -439,15 +506,18 @@ function shoot() {
         dir.normalize();
         const ray = new THREE.Raycaster(camera.position.clone(), dir, 0.1, 200);
         let hitEnemy = false;
+        let endPoint = camera.position.clone().add(dir.clone().multiplyScalar(120));
         for (const e of enemies) {
             if (!e.alive) continue;
             const hits = ray.intersectObject(e.mesh, true);
             if (hits.length > 0) {
+                endPoint = hits[0].point.clone();
                 const isHead = hits[0].object === e.mesh.children[0] || (hits[0].object.parent && hits[0].object.parent === e.mesh.children[0]);
                 const dmg = isHead ? w.damage * w.headMult : w.damage;
                 e.hp -= dmg;
                 playSound(isHead ? 'headshot' : 'hit');
                 showHitMarker();
+                spawnImpact(hits[0].point, hits[0].face ? hits[0].face.normal : new THREE.Vector3(0, 1, 0));
                 if (e.hp <= 0) {
                     e.alive = false;
                     scene.remove(e.mesh);
@@ -462,9 +532,11 @@ function shoot() {
         if (!hitEnemy) {
             const groundHits = ray.intersectObjects(levelBuildings);
             if (groundHits.length > 0) {
+                endPoint = groundHits[0].point.clone();
                 spawnImpact(groundHits[0].point, groundHits[0].face.normal);
             }
         }
+        spawnTracer(muzzlePos.clone(), endPoint, w.id === 'm1014' ? 0xffd27a : 0xfff2b0, 80);
     }
     if (w.ammo <= 0) reloadWeapon();
     updateHUD();
@@ -600,13 +672,20 @@ function updateEnemies(dt) {
 }
 
 function spawnEnemyBullet(from) {
-    const geo = new THREE.SphereGeometry(0.04, 4, 4);
-    const mat = new THREE.MeshBasicMaterial({ color: 0xFF6633 });
+    // Elongated glowing tracer oriented along travel direction - reads as a real round
+    const geo = new THREE.BoxGeometry(0.05, 0.05, 0.7);
+    const mat = new THREE.MeshBasicMaterial({
+        color: 0xff7043, transparent: true, opacity: 0.95,
+        blending: THREE.AdditiveBlending, depthWrite: false
+    });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(from);
     mesh.position.y += 0.2;
-    scene.add(mesh);
     const dir = new THREE.Vector3().subVectors(player.pos, from).normalize();
+    mesh.lookAt(mesh.position.clone().add(dir));
+    // Enemy muzzle pop so you can see where the shot came from
+    spawnTracer(mesh.position.clone(), mesh.position.clone().add(dir.clone().multiplyScalar(1.5)), 0xff8a50, 60);
+    scene.add(mesh);
     const start = Date.now();
     let blocked = false;
     projectiles.push({
@@ -654,10 +733,25 @@ function updatePlayer(dt) {
         player.vel.y = 0;
         player.onGround = true;
     }
+    // Recoil recovery: kick decays, applied on top of aim pitch
+    if (recoilPitch > 0) {
+        const recover = recoilPitch * Math.min(1, dt * 10);
+        recoilPitch -= recover;
+        pitch += recover * 0.6;
+        if (recoilPitch < 0.0005) recoilPitch = 0;
+    } else {
+        pitch += recoilPitch;
+        recoilPitch = 0;
+    }
     camera.position.copy(player.pos);
     camera.rotation.order = 'YXZ';
     camera.rotation.y = yaw;
-    camera.rotation.x = pitch;
+    camera.rotation.x = pitch + recoilPitch;
+    // Muzzle flash fade
+    if (muzzleFlash && Date.now() > muzzleFlashUntil) {
+        muzzleFlash.material.opacity = Math.max(0, muzzleFlash.material.opacity - dt * 12);
+        if (muzzleLight) muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 80);
+    }
     player.pos.x = Math.max(-140, Math.min(140, player.pos.x));
     player.pos.z = Math.max(-140, Math.min(140, player.pos.z));
     pushOutOfBuildings(player.pos, 0.4);
@@ -750,7 +844,7 @@ function updateMinimap() {
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.sin(yaw) * 8, cy - Math.cos(yaw) * 8);
+    ctx.lineTo(cx - Math.sin(yaw) * 8, cy - Math.cos(yaw) * 8);
     ctx.stroke();
     enemies.forEach(e => {
         if (!e.alive) return;
