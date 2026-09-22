@@ -828,8 +828,10 @@ function generateLevel(lvl) {
     levelBuildings.push(gnd);
     const bCount = 20 + lvl * 3;
     const arena = 50 + lvl * 2;
-    // land the player at the map edge, facing the center — never in the middle of the pack
-    const spawnX = arena * 0.35, spawnZ = arena * 0.35;
+    // drop the player in a random map corner, facing the center — never mid-map
+    const corner = Math.floor(Math.random() * 4);
+    const spawnX = (corner % 2 === 0 ? -1 : 1) * arena * 0.45;
+    const spawnZ = (corner < 2 ? -1 : 1) * arena * 0.45;
     const excl = buildCitySet(cityIdx, arena);
     const nearExcl = (x, z, pad) => excl.some(e => Math.hypot(x - e.x, z - e.z) < e.r + (pad || 0));
     for (let i = 0; i < bCount; i++) {
