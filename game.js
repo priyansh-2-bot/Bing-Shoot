@@ -89,6 +89,13 @@ let muzzleLight = null;
 let muzzleFlash = null;
 let muzzleFlashUntil = 0;
 let recoilPitch = 0;
+let viewmodels = {};
+let gunTips = {};
+let bobTime = 0;
+let deathGroup = null;
+let deathT = 0;
+let deathCamFrom = null;
+let deathCamTo = null;
 
 function boxContains(box, x, z) {
     return x >= box.minX && x <= box.maxX && z >= box.minZ && z <= box.maxZ;
@@ -193,6 +200,85 @@ function playSound(type) {
             osc.start(now); osc.stop(now + 0.2); break;
     }
 }
+function vmMat(color, emissive) {
+    return new THREE.MeshStandardMaterial({ color, roughness: 0.45, metalness: 0.55, emissive: emissive || 0x000000 });
+}
+
+function buildGunModel(id) {
+    const g = new THREE.Group();
+    const dark = vmMat(0x23262e);
+    const mid = vmMat(0x3a3f4a);
+    const wood = vmMat(0x6e4525);
+    const grip = vmMat(0x1a1c22);
+    const accent = vmMat(0x0e2a24, 0x00e5a0);
+    const add = (geo, m, x, y, z, rx, ry, rz) => {
+        const mesh = new THREE.Mesh(geo, m);
+        mesh.position.set(x, y, z);
+        if (rx) mesh.rotation.x = rx;
+        if (ry) mesh.rotation.y = ry;
+        if (rz) mesh.rotation.z = rz;
+        g.add(mesh);
+        return mesh;
+    };
+    // hands gripping (skin)
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc98d64, roughness: 0.7 });
+    if (id === 'revolver') {
+        add(new THREE.BoxGeometry(0.07, 0.09, 0.22), dark, 0, 0, -0.1);
+        add(new THREE.CylinderGeometry(0.045, 0.045, 0.07, 12), mid, 0, 0.01, -0.12).rotation.x = Math.PI / 2;
+        add(new THREE.CylinderGeometry(0.022, 0.022, 0.2, 10), dark, 0, 0.015, -0.3).rotation.x = Math.PI / 2;
+        add(new THREE.BoxGeometry(0.06, 0.12, 0.07), wood, 0, -0.09, 0.0, 0.25, 0, 0);
+        add(new THREE.BoxGeometry(0.09, 0.07, 0.1), skin, 0, -0.08, -0.05);
+        add(new THREE.BoxGeometry(0.012, 0.03, 0.012), accent, 0, 0.045, -0.2);
+    } else if (id === 'mp5') {
+        add(new THREE.BoxGeometry(0.075, 0.1, 0.45), dark, 0, 0, -0.2);
+        add(new THREE.CylinderGeometry(0.025, 0.025, 0.3, 10), mid, 0, 0.02, -0.5).rotation.x = Math.PI / 2;
+        add(new THREE.BoxGeometry(0.06, 0.16, 0.08), grip, 0, -0.11, -0.1, 0.3, 0, 0);
+        add(new THREE.BoxGeometry(0.055, 0.1, 0.09), grip, 0, -0.06, 0.12, -0.2, 0, 0);
+        add(new THREE.BoxGeometry(0.09, 0.07, 0.12), skin, 0, -0.08, -0.08);
+        add(new THREE.BoxGeometry(0.02, 0.02, 0.06), accent, 0, 0.06, -0.25);
+    } else if (id === 'ak47') {
+        add(new THREE.BoxGeometry(0.075, 0.1, 0.5), dark, 0, 0, -0.2);
+        add(new THREE.CylinderGeometry(0.024, 0.024, 0.32, 10), mid, 0, 0.02, -0.55).rotation.x = Math.PI / 2;
+        add(new THREE.BoxGeometry(0.06, 0.09, 0.22), wood, 0, -0.01, -0.35);
+        add(new THREE.BoxGeometry(0.055, 0.16, 0.07), wood, 0, -0.11, -0.05, 0.5, 0, 0);
+        add(new THREE.BoxGeometry(0.06, 0.12, 0.08), wood, 0, -0.02, 0.14, -0.15, 0, 0);
+        add(new THREE.BoxGeometry(0.09, 0.07, 0.12), skin, 0, -0.08, -0.12);
+        add(new THREE.BoxGeometry(0.014, 0.05, 0.014), grip, 0, 0.08, -0.35);
+    } else {
+        add(new THREE.BoxGeometry(0.085, 0.11, 0.55), dark, 0, 0, -0.2);
+        add(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 12), mid, 0, 0.03, -0.55).rotation.x = Math.PI / 2;
+        add(new THREE.BoxGeometry(0.07, 0.08, 0.25), wood, 0, -0.06, -0.3);
+        add(new THREE.BoxGeometry(0.06, 0.12, 0.09), wood, 0, -0.09, 0.1, 0.25, 0, 0);
+        add(new THREE.BoxGeometry(0.09, 0.07, 0.12), skin, 0, -0.08, -0.1);
+        add(new THREE.BoxGeometry(0.02, 0.02, 0.08), accent, 0, 0.065, -0.28);
+    }
+    const tip = new THREE.Object3D();
+    const tipZ = id === 'revolver' ? -0.42 : id === 'mp5' ? -0.68 : id === 'ak47' ? -0.73 : -0.78;
+    tip.position.set(0, 0.02, tipZ);
+    g.add(tip);
+    return { group: g, tip };
+}
+
+function buildViewmodels() {
+    const basePos = new THREE.Vector3(0.32, -0.28, -0.55);
+    ['revolver', 'mp5', 'ak47', 'm1014'].forEach((id, i) => {
+        const built = buildGunModel(id);
+        built.group.position.copy(basePos);
+        built.group.rotation.set(0, 0, 0);
+        built.group.visible = (i === currentWeaponIdx);
+        camera.add(built.group);
+        viewmodels[id] = built.group;
+        gunTips[id] = built.tip;
+    });
+}
+
+function showViewmodel(idx) {
+    const ids = ['revolver', 'mp5', 'ak47', 'm1014'];
+    ids.forEach((id, i) => {
+        if (viewmodels[id]) viewmodels[id].visible = (i === idx);
+    });
+}
+
 function initThree() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x78AEE6);
@@ -231,6 +317,7 @@ function initThree() {
     muzzleFlash = new THREE.Mesh(flashGeo, flashMat);
     muzzleFlash.position.set(0.35, -0.25, -0.9);
     camera.add(muzzleFlash);
+    buildViewmodels();
     minimapCtx = document.getElementById('minimapCanvas').getContext('2d');
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -362,7 +449,10 @@ function generateLevel(lvl) {
     updateHUD();
 }
 
+let inputReady = false;
 function setupInput() {
+    if (inputReady) return;
+    inputReady = true;
     document.addEventListener('keydown', (e) => {
         if (gameState !== 'playing') return;
         if (paused && e.code !== 'Escape') return;
@@ -401,13 +491,19 @@ function setupInput() {
     });
     document.addEventListener('mousedown', (e) => { if (e.button === 0 && !paused) mouseDown = true; });
     document.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
+    document.addEventListener('wheel', (e) => {
+        if (gameState !== 'playing' || paused) return;
+        if (e.deltaY > 0) cycleWeapon(1);
+        else if (e.deltaY < 0) cycleWeapon(-1);
+    }, { passive: true });
     document.addEventListener('mousemove', (e) => {
         if (gameState !== 'playing' || !document.pointerLockElement || paused) return;
         // Standard FPS: mouse right (positive movementX) -> look right (yaw decreases
-        // in three.js because +Y rotation turns left). Same for pitch.
+        // in three.js because +Y rotation turns left). Mouse up (negative movementY)
+        // -> look up (pitch increases).
         yaw -= e.movementX * 0.002 * settings.sensitivity;
-        const invertY = settings.invertY ? 1 : -1;
-        pitch -= e.movementY * 0.002 * settings.sensitivity * invertY;
+        const yFactor = settings.invertY ? -1 : 1;
+        pitch -= e.movementY * 0.002 * settings.sensitivity * yFactor;
         pitch = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, pitch));
     });
 }
@@ -416,8 +512,16 @@ function switchWeapon(idx) {
     if (idx >= 0 && idx < weapons.length && idx !== currentWeaponIdx) {
         currentWeaponIdx = idx;
         weapons[idx].reloading = false;
+        showViewmodel(idx);
+        playSound('reload');
         updateHUD();
     }
+}
+
+function cycleWeapon(dir) {
+    const n = weapons.length;
+    const next = (currentWeaponIdx + dir + n) % n;
+    switchWeapon(next);
 }
 
 function reloadWeapon() {
@@ -441,7 +545,16 @@ function useMedkit() {
     }
 }
 
+function currentGunId() {
+    return weapons[currentWeaponIdx].id;
+}
+
 function getMuzzleWorldPos() {
+    const tip = gunTips[currentGunId()];
+    if (tip) {
+        tip.updateWorldMatrix(true, false);
+        return new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
+    }
     const v = new THREE.Vector3(0.35, -0.25, -0.9);
     camera.updateMatrixWorld();
     return camera.localToWorld(v);
@@ -449,6 +562,15 @@ function getMuzzleWorldPos() {
 
 function triggerMuzzleFlash(kick) {
     muzzleFlashUntil = Date.now() + 55;
+    const tip = gunTips[currentGunId()];
+    let flashPos = null;
+    if (tip) {
+        tip.updateWorldMatrix(true, false);
+        flashPos = new THREE.Vector3().setFromMatrixPosition(tip.matrixWorld);
+        const local = camera.worldToLocal(flashPos.clone());
+        muzzleFlash.position.copy(local);
+        muzzleLight.position.copy(local);
+    }
     if (muzzleFlash) {
         muzzleFlash.material.opacity = 0.95;
         muzzleFlash.rotation.z = Math.random() * Math.PI;
@@ -752,6 +874,23 @@ function updatePlayer(dt) {
         muzzleFlash.material.opacity = Math.max(0, muzzleFlash.material.opacity - dt * 12);
         if (muzzleLight) muzzleLight.intensity = Math.max(0, muzzleLight.intensity - dt * 80);
     }
+    // Gun bob + recoil kick on viewmodels
+    const moving = move.length() > 0 && player.onGround;
+    if (moving) bobTime += dt * (sprinting ? 11 : 8);
+    const bobY = moving ? Math.sin(bobTime) * 0.012 : Math.sin(Date.now() * 0.002) * 0.004;
+    const bobX = moving ? Math.cos(bobTime * 0.5) * 0.008 : 0;
+    const ids = ['revolver', 'mp5', 'ak47', 'm1014'];
+    const cur = viewmodels[currentGunId()];
+    if (cur) {
+        cur.position.set(0.32 + bobX, -0.28 + bobY, -0.55 + recoilPitch * 1.2);
+        cur.rotation.x = recoilPitch * 2.2;
+    }
+    ids.forEach(id => {
+        if (id !== currentGunId() && viewmodels[id]) {
+            viewmodels[id].position.set(0.32, -0.28, -0.55);
+            viewmodels[id].rotation.x = 0;
+        }
+    });
     player.pos.x = Math.max(-140, Math.min(140, player.pos.x));
     player.pos.z = Math.max(-140, Math.min(140, player.pos.z));
     pushOutOfBuildings(player.pos, 0.4);
@@ -860,11 +999,100 @@ function updateMinimap() {
     });
 }
 
-function gameOver() {
-    gameState = 'gameover';
-    document.getElementById('gameOverScreen').classList.add('show');
-    document.getElementById('finalScore').textContent = 'SCORE: ' + score;
+function buildProtagonist(gunId) {
+    const grp = new THREE.Group();
+    const skinM = new THREE.MeshStandardMaterial({ color: 0xc98d64, roughness: 0.6 });
+    const shirtM = new THREE.MeshStandardMaterial({ color: 0x2e4a3e, roughness: 0.8 });
+    const pantsM = new THREE.MeshStandardMaterial({ color: 0x2a2d36, roughness: 0.8 });
+    const hairM = new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.9 });
+    const bootM = new THREE.MeshStandardMaterial({ color: 0x1a140f, roughness: 0.85 });
+    const add = (geo, m, x, y, z) => {
+        const mesh = new THREE.Mesh(geo, m);
+        mesh.position.set(x, y, z);
+        mesh.castShadow = true;
+        grp.add(mesh);
+        return mesh;
+    };
+    // legs (sturdy)
+    add(new THREE.BoxGeometry(0.22, 0.85, 0.24), pantsM, -0.14, 0.43, 0);
+    add(new THREE.BoxGeometry(0.22, 0.85, 0.24), pantsM, 0.14, 0.43, 0);
+    add(new THREE.BoxGeometry(0.24, 0.14, 0.34), bootM, -0.14, 0.07, 0.04);
+    add(new THREE.BoxGeometry(0.24, 0.14, 0.34), bootM, 0.14, 0.07, 0.04);
+    // torso - broad shoulders, tapering waist (physique)
+    add(new THREE.BoxGeometry(0.62, 0.35, 0.34), shirtM, 0, 1.05, 0);
+    add(new THREE.BoxGeometry(0.52, 0.35, 0.3), shirtM, 0, 0.72, 0);
+    // vest straps
+    add(new THREE.BoxGeometry(0.12, 0.4, 0.36), pantsM, -0.18, 1.0, 0);
+    add(new THREE.BoxGeometry(0.12, 0.4, 0.36), pantsM, 0.18, 1.0, 0);
+    // arms - muscular, holding gun forward
+    const armL = add(new THREE.BoxGeometry(0.16, 0.16, 0.55), skinM, -0.2, 1.05, 0.35);
+    const armR = add(new THREE.BoxGeometry(0.16, 0.16, 0.55), skinM, 0.2, 1.0, 0.35);
+    armL.rotation.y = 0.12;
+    armR.rotation.y = -0.12;
+    add(new THREE.BoxGeometry(0.3, 0.14, 0.14), skinM, -0.32, 1.05, 0.05);
+    add(new THREE.BoxGeometry(0.3, 0.14, 0.14), skinM, 0.32, 1.0, 0.05);
+    // head
+    add(new THREE.SphereGeometry(0.19, 14, 12), skinM, 0, 1.45, 0);
+    // long hair: back mass + side locks down to shoulders
+    add(new THREE.BoxGeometry(0.42, 0.55, 0.16), hairM, 0, 1.2, -0.2);
+    add(new THREE.BoxGeometry(0.1, 0.45, 0.12), hairM, -0.22, 1.2, -0.05);
+    add(new THREE.BoxGeometry(0.1, 0.45, 0.12), hairM, 0.22, 1.2, -0.05);
+    add(new THREE.SphereGeometry(0.2, 12, 10, 0, Math.PI * 2, 0, 1.2), hairM, 0, 1.48, -0.03);
+    // gun in hands (reuse gun builder, world-scale clone)
+    const built = buildGunModel(gunId || 'ak47');
+    built.group.scale.setScalar(1.6);
+    built.group.position.set(0, 1.02, 0.75);
+    built.group.rotation.set(0, 0, 0);
+    grp.add(built.group);
+    return grp;
+}
+
+function startDeathAnim() {
+    gameState = 'dying';
+    mouseDown = false;
+    moveForward = moveBack = moveLeft = moveRight = false;
+    Object.values(viewmodels).forEach(v => { v.visible = false; });
+    if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
+    deathGroup = buildProtagonist(currentGunId());
+    const fwd = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+    deathGroup.position.set(
+        player.pos.x + fwd.x * 1.2,
+        0,
+        player.pos.z + fwd.z * 1.2
+    );
+    deathGroup.rotation.y = yaw + Math.PI;
+    scene.add(deathGroup);
+    deathT = 0;
+    deathCamFrom = camera.position.clone();
+    const back = fwd.clone().multiplyScalar(-2.6);
+    deathCamTo = new THREE.Vector3(
+        deathGroup.position.x + back.x,
+        2.0,
+        deathGroup.position.z + back.z
+    );
     document.exitPointerLock();
+}
+
+function updateDeathAnim(dt) {
+    if (!deathGroup) return 1;
+    deathT += dt;
+    const t = Math.min(1, deathT / 2.0);
+    // fall backward: rotate to ground, sink slightly, head drops last
+    const ease = t * t * (3 - 2 * t);
+    deathGroup.rotation.x = -ease * Math.PI / 2.15;
+    deathGroup.position.y = -ease * 0.35;
+    if (camera && deathCamFrom && deathCamTo) {
+        camera.position.lerpVectors(deathCamFrom, deathCamTo, Math.min(1, deathT / 1.2));
+        camera.lookAt(deathGroup.position.x, 1.0 - ease * 0.6, deathGroup.position.z);
+    }
+    if (muzzleFlash) muzzleFlash.material.opacity = 0;
+    if (muzzleLight) muzzleLight.intensity = 0;
+    return t;
+}
+
+function gameOver() {
+    if (gameState === 'dying' || gameState === 'gameover') return;
+    startDeathAnim();
 }
 
 function winLevel() {
@@ -886,6 +1114,8 @@ function winLevel() {
 function restartGame() {
     document.getElementById('gameOverScreen').classList.remove('show');
     document.getElementById('winScreen').classList.remove('show');
+    if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
+    deathT = 0;
     level = 1;
     score = 0;
     kills = 0;
@@ -894,6 +1124,7 @@ function restartGame() {
     weapons.forEach(w => { w.ammo = w.mag; w.reloading = false; });
     currentWeaponIdx = 0;
     generateLevel(level);
+    showViewmodel(0);
     gameState = 'playing';
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
@@ -999,7 +1230,23 @@ document.addEventListener('pointerlockchange', () => {
 
 function gameLoop() {
     requestAnimationFrame(gameLoop);
-    if (gameState !== 'playing' || paused) return;
+    if (paused) return;
+    if (gameState === 'dying') {
+        const dt = Math.min(clock.getDelta(), 0.05);
+        updateProjectiles();
+        const t = updateDeathAnim(dt);
+        updateMinimap();
+        renderer.render(scene, camera);
+        if (t >= 1 && gameState === 'dying') {
+            gameState = 'gameover';
+            document.getElementById('gameOverScreen').classList.add('show');
+            document.getElementById('finalScore').textContent = 'SCORE: ' + score;
+            const fb = document.getElementById('finalBreath');
+            if (fb) fb.textContent = 'FINAL BREATH — ' + weapons[currentWeaponIdx].name + ' IN HAND';
+        }
+        return;
+    }
+    if (gameState !== 'playing') return;
     const dt = Math.min(clock.getDelta(), 0.05);
     updatePlayer(dt);
     updateEnemies(dt);
