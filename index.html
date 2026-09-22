@@ -160,6 +160,29 @@
             font-size: 14px; color: #7CFF6B;
         }
 
+        .throwable-indicator {
+            position: absolute; bottom: 44px; right: 20px;
+            font-size: 12px; color: #FFB457; letter-spacing: 1px;
+        }
+
+        #scopeOverlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.12s;
+        }
+        #scopeOverlay.show { opacity: 1; }
+        .scope-circle {
+            width: 62vmin; height: 62vmin; border-radius: 50%;
+            border: 3px solid rgba(0,0,0,0.9);
+            box-shadow: 0 0 0 200vmax rgba(0,0,0,0.96), inset 0 0 60px rgba(0,0,0,0.6);
+            position: relative;
+        }
+        .scope-circle::before, .scope-circle::after {
+            content: ''; position: absolute; background: rgba(0,0,0,0.85);
+        }
+        .scope-circle::before { width: 100%; height: 2px; top: 50%; left: 0; }
+        .scope-circle::after { width: 2px; height: 100%; left: 50%; top: 0; }
+
         .pause-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.88); z-index: 150;
@@ -233,9 +256,10 @@
         <div class="menu-subtitle">TACTICAL CAMPAIGN</div>
         <button class="menu-btn" id="startBtn">START GAME</button>
         <div class="menu-controls">
-            WASD - MOVE &nbsp;|&nbsp; MOUSE - LOOK &nbsp;|&nbsp; LMB - SHOOT<br>
+            WASD - MOVE &nbsp;|&nbsp; MOUSE - LOOK &nbsp;|&nbsp; LMB - SHOOT &nbsp;|&nbsp; RMB - AIM<br>
             SPACE - JUMP &nbsp;|&nbsp; CTRL - CROUCH &nbsp;|&nbsp; SHIFT - SPRINT<br>
-            1-4 - WEAPONS &nbsp;|&nbsp; R - RELOAD &nbsp;|&nbsp; Q - MEDKIT
+            1-7 / SCROLL - WEAPONS &nbsp;|&nbsp; R - RELOAD &nbsp;|&nbsp; Q - MEDKIT<br>
+            G - GRENADE &nbsp;|&nbsp; F - FIRE BOMB
         </div>
     </div>
 
@@ -269,11 +293,14 @@
         </div>
 
         <div class="medkit-indicator" id="medkitIndicator">MEDKITS: 2</div>
+        <div class="throwable-indicator" id="throwableIndicator">G:GRENADE×3  F:FIRE×2</div>
+        <div id="scopeOverlay"><div class="scope-circle"></div></div>
     </div>
 
     <div class="game-over-screen" id="gameOverScreen">
         <div class="game-over-title">MISSION FAILED</div>
         <div class="game-over-score" id="finalScore">SCORE: 0</div>
+        <div class="game-over-score" id="finalBreath" style="font-size:16px;color:#9ab;margin-top:8px;letter-spacing:1px;"></div>
         <button class="game-over-btn" onclick="restartGame()">RETRY</button>
     </div>
 
