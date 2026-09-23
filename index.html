@@ -118,6 +118,32 @@
         .game-over-screen.show { display: flex; }
         .game-over-title { font-size: 56px; font-weight: 900; color: #FF5252; letter-spacing: 6px; }
         .game-over-score { font-size: 24px; color: #FFD740; margin-top: 16px; }
+        .best-score {
+            font-size: 26px; font-weight: 900; letter-spacing: 3px; margin-top: 10px;
+            background: linear-gradient(90deg, #FFD740, #ff9a3c, #FFD740);
+            background-size: 200% auto;
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            animation: bestShine 2.5s linear infinite;
+            filter: drop-shadow(0 0 8px rgba(255,180,60,0.55));
+        }
+        @keyframes bestShine { to { background-position: 200% center; } }
+        .new-record {
+            font-size: 34px; font-weight: 900; letter-spacing: 4px; margin-top: 12px;
+            background: linear-gradient(90deg, #ff3c6e, #FFD740, #00E5A0, #ff3c6e);
+            background-size: 300% auto;
+            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+            animation: recordFlash 1.2s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(255,60,120,0.7));
+        }
+        @keyframes recordFlash {
+            0% { background-position: 0% center; transform: scale(1); }
+            50% { transform: scale(1.06); }
+            100% { background-position: 300% center; transform: scale(1); }
+        }
+        .menu-best {
+            font-size: 18px; font-weight: 800; letter-spacing: 3px; margin-top: 14px;
+            color: #FFD740; text-shadow: 0 0 14px rgba(255,180,60,0.6);
+        }
         .game-over-btn {
             margin-top: 30px; padding: 14px 40px; font-size: 16px; font-weight: 700;
             background: #00C896; color: #fff; border: none; border-radius: 6px;
@@ -297,6 +323,7 @@
     <div id="blocker">
         <div class="menu-title">BING SHOOT</div>
         <div class="menu-subtitle">TACTICAL CAMPAIGN</div>
+        <div class="menu-best" id="menuBest">★ BEST: 0 ★</div>
         <button class="menu-btn" id="startBtn">START GAME</button>
         <div class="menu-controls">
             WASD - MOVE &nbsp;|&nbsp; MOUSE - LOOK &nbsp;|&nbsp; LMB - SHOOT &nbsp;|&nbsp; RMB - AIM<br>
@@ -361,7 +388,9 @@
 
     <div class="game-over-screen" id="gameOverScreen">
         <div class="game-over-title">MISSION FAILED</div>
+        <div class="new-record" id="newRecord" style="display:none;">★ NEW RECORD ★</div>
         <div class="game-over-score" id="finalScore">SCORE: 0</div>
+        <div class="best-score" id="bestScore">BEST: 0</div>
         <div class="game-over-score" id="finalBreath" style="font-size:16px;color:#9ab;margin-top:8px;letter-spacing:1px;"></div>
         <button class="game-over-btn" onclick="restartGame()">RETRY</button>
     </div>
@@ -418,7 +447,9 @@
 
     <div class="win-screen" id="winScreen">
         <div class="win-title">MISSION COMPLETE</div>
+        <div class="new-record" id="winRecord" style="display:none;">★ NEW RECORD ★</div>
         <div class="win-score" id="winScore">SCORE: 0</div>
+        <div class="best-score" id="winBest">BEST: 0</div>
         <button class="win-btn" onclick="restartGame()">PLAY AGAIN</button>
     </div>
 

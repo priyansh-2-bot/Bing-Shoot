@@ -23,11 +23,11 @@ const CITIES = [
 
 const WEAPONS = [
     { id: 'revolver', name: 'REVOLVER .44', slot: 1, unlock: 1, damage: 38, headMult: 2.5, fireRate: 300, mag: 6, reloadTime: 1100, spread: 0.01, auto: false, sfx: 'gunshot', adsZoom: 62, tracer: { color: 0xffd27a, width: 0.022, life: 90 } },
-    { id: 'mp5', name: 'MP5 SMG', slot: 2, unlock: 2, damage: 16, headMult: 3.0, fireRate: 85, mag: 30, reloadTime: 1600, spread: 0.02, auto: true, sfx: 'smg', adsZoom: 58, tracer: { color: 0x7df9ff, width: 0.015, life: 60 } },
-    { id: 'ak47', name: 'AK-47', slot: 3, unlock: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 30, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'rifle', adsZoom: 50, tracer: { color: 0xffb457, width: 0.018, life: 75 } },
-    { id: 'm1014', name: 'M1014 SHOTGUN', slot: 4, unlock: 4, damage: 9, headMult: 2.0, fireRate: 720, mag: 7, reloadTime: 2400, spread: 0.08, auto: false, pellets: 7, sfx: 'shotgun', adsZoom: 62, tracer: { color: 0xfff2b0, width: 0.02, life: 70 } },
+    { id: 'mp5', name: 'MP5 SMG', slot: 2, unlock: 2, damage: 16, headMult: 3.0, fireRate: 85, mag: 25, reloadTime: 1600, spread: 0.02, auto: true, sfx: 'smg', adsZoom: 58, tracer: { color: 0x7df9ff, width: 0.015, life: 60 } },
+    { id: 'ak47', name: 'AK-47', slot: 3, unlock: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 47, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'rifle', adsZoom: 50, tracer: { color: 0xffb457, width: 0.018, life: 75 } },
+    { id: 'm1014', name: 'M1014 SHOTGUN', slot: 4, unlock: 4, damage: 9, headMult: 2.0, fireRate: 720, mag: 10, reloadTime: 2400, spread: 0.08, auto: false, pellets: 7, sfx: 'shotgun', adsZoom: 62, tracer: { color: 0xfff2b0, width: 0.02, life: 70 } },
     { id: 'scar', name: 'SCAR-L', slot: 5, unlock: 5, damage: 30, headMult: 3.2, fireRate: 130, mag: 30, reloadTime: 1800, spread: 0.018, auto: true, sfx: 'rifle', adsZoom: 42, tracer: { color: 0x9dff70, width: 0.017, life: 75 } },
-    { id: 'awp', name: 'AWP SNIPER', slot: 6, unlock: 7, damage: 110, headMult: 2.0, fireRate: 1400, mag: 5, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'rifle', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.013, life: 110 } },
+    { id: 'awp', name: 'AWP SNIPER', slot: 6, unlock: 7, damage: 110, headMult: 2.0, fireRate: 1400, mag: 8, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'rifle', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.013, life: 110 } },
     { id: 'rpg', name: 'RPG-7', slot: 7, unlock: 9, damage: 130, headMult: 1.0, fireRate: 1800, mag: 1, reloadTime: 2800, spread: 0.005, auto: false, sfx: 'shotgun', adsZoom: 60, rocket: true, tracer: { color: 0xff6a3c, width: 0.04, life: 120 } },
 ];
 
@@ -42,6 +42,26 @@ function showBanner(text, ms) {
     el.classList.add('show');
     clearTimeout(showBanner._t);
     showBanner._t = setTimeout(() => el.classList.remove('show'), ms || 3500);
+}
+
+// All-time best, persisted across sessions
+let highScore = 0;
+try { highScore = parseInt(localStorage.getItem('bingShootBest') || '0', 10) || 0; } catch (e) {}
+
+function saveBest() {
+    let isNew = false;
+    if (score > highScore) {
+        highScore = score;
+        isNew = score > 0;
+        try { localStorage.setItem('bingShootBest', String(score)); } catch (e) {}
+    }
+    const mb = document.getElementById('menuBest');
+    if (mb) mb.textContent = '★ BEST: ' + highScore + ' ★';
+    return isNew;
+}
+
+function dimScene(on) {
+    if (renderer && renderer.domElement) renderer.domElement.style.filter = on ? 'brightness(0.32)' : '';
 }
 
 const GUN_IDS = ['revolver', 'mp5', 'ak47', 'm1014', 'scar', 'awp', 'rpg'];
@@ -1961,8 +1981,12 @@ function gameOver() {
 function winLevel() {
     if (level >= 10) {
         gameState = 'win';
+        const isNew = saveBest();
         document.getElementById('winScreen').classList.add('show');
         document.getElementById('winScore').textContent = 'FINAL SCORE: ' + score;
+        document.getElementById('winBest').textContent = 'BEST: ' + highScore;
+        document.getElementById('winRecord').style.display = isNew ? '' : 'none';
+        dimScene(true);
         document.exitPointerLock();
     } else {
         level++;
@@ -1998,6 +2022,7 @@ function restartGame() {
     document.getElementById('gameOverScreen').classList.remove('show');
     document.getElementById('winScreen').classList.remove('show');
     document.getElementById('intermission').classList.remove('show');
+    dimScene(false);
     if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
     deathT = 0;
     level = 1;
@@ -2113,6 +2138,7 @@ function startGame() {
 }
 
 document.getElementById('startBtn').addEventListener('click', startGame);
+saveBest();
 
 document.addEventListener('pointerlockchange', () => {
     if (!document.pointerLockElement && gameState === 'playing' && !paused) {
@@ -2131,10 +2157,14 @@ function gameLoop() {
         renderer.render(scene, camera);
         if (t >= 1 && gameState === 'dying') {
             gameState = 'gameover';
+            const isNew = saveBest();
             document.getElementById('gameOverScreen').classList.add('show');
             document.getElementById('finalScore').textContent = 'SCORE: ' + score;
             const fb = document.getElementById('finalBreath');
             if (fb) fb.textContent = 'FINAL BREATH — ' + weapons[currentWeaponIdx].name + ' IN HAND';
+            document.getElementById('bestScore').textContent = 'BEST: ' + highScore;
+            document.getElementById('newRecord').style.display = isNew ? '' : 'none';
+            dimScene(true);
         }
         return;
     }
