@@ -75,10 +75,11 @@ const ENEMY_TYPES = {
 };
 
 function getLevelEnemyCount(lvl) {
-    if (lvl <= 1) return 3;
-    if (lvl <= 2) return 5;
-    if (lvl <= 3) return 7;
-    return 5 + lvl * 2;
+    return 6;
+}
+
+function getLevelDodge(lvl) {
+    return Math.min(1.0, 0.25 + lvl * 0.09);
 }
 
 function getLevelEnemyTypes(lvl) {
@@ -90,17 +91,11 @@ function getLevelEnemyTypes(lvl) {
 }
 
 function getLevelDamageScale(lvl) {
-    if (lvl <= 1) return 0.5;
-    if (lvl <= 2) return 0.65;
-    if (lvl <= 3) return 0.8;
-    return 1.0;
+    return Math.min(1.5, 0.5 + lvl * 0.1);
 }
 
 function getLevelFireRateScale(lvl) {
-    if (lvl <= 1) return 1.8;
-    if (lvl <= 2) return 1.5;
-    if (lvl <= 3) return 1.2;
-    return 1.0;
+    return Math.max(0.55, 1.9 - lvl * 0.15);
 }
 
 let scene, camera, renderer, clock;
@@ -948,7 +943,34 @@ function buildEnemyMesh(cfg) {
     );
     arm.position.set(0.35, -0.1, 0.2);
     body.add(arm);
+    // thin overhead HP bar (billboarded each frame, removed with the body on death)
+    const barGroup = new THREE.Group();
+    barGroup.position.set(0, 1.78, 0);
+    const barBg = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.9, 0.09),
+        new THREE.MeshBasicMaterial({ color: 0x101418, transparent: true, opacity: 0.75, depthWrite: false })
+    );
+    const barFill = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.86, 0.055),
+        new THREE.MeshBasicMaterial({ color: 0x4dff5e, depthWrite: false })
+    );
+    barFill.position.z = 0.001;
+    barGroup.add(barBg);
+    barGroup.add(barFill);
+    barGroup.traverse(o => { o.raycast = function() {}; });
+    body.add(barGroup);
+    body.userData.hpBar = barGroup;
+    body.userData.hpFill = barFill;
     return body;
+}
+
+function updateEnemyHpBar(e) {
+    const fill = e.mesh && e.mesh.userData.hpFill;
+    if (!fill) return;
+    const pct = Math.max(0, Math.min(1, e.hp / e.maxHp));
+    fill.scale.x = Math.max(0.001, pct);
+    fill.position.x = -(1 - pct) * 0.43;
+    fill.material.color.setHSL(pct * 0.33, 0.9, 0.5);
 }
 
 function generateLevel(lvl) {
@@ -1036,7 +1058,7 @@ function generateLevel(lvl) {
             damage: cfg.damage * dmgScale, fireRate: cfg.fireRate * rateScale, score: cfg.score,
             lastFire: 0, state: 'patrol',
             patrolTarget: new THREE.Vector3((Math.random()-0.5)*arena, 0, (Math.random()-0.5)*arena),
-            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true, roof: false
+            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true, roof: false, dodge: getLevelDodge(lvl)
         });
     }
     // Rooftop snipers: max 2 per level, from level 4. Stationary, long range.
@@ -1062,7 +1084,7 @@ function generateLevel(lvl) {
                 damage: scfg.damage * dmgScale, fireRate: scfg.fireRate * rateScale, score: scfg.score + 20,
                 lastFire: 0, state: 'roof',
                 patrolTarget: new THREE.Vector3(s.cx, 0, s.cz),
-                alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY
+                alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY, dodge: getLevelDodge(lvl)
             });
         }
         levelRoofSnipers = spots.length;
@@ -1271,6 +1293,7 @@ function spawnTracer(from, to, colorHex, lifeMs, width) {
 
 function damageEnemy(e, dmg, point, isHead) {
     e.hp -= dmg;
+    updateEnemyHpBar(e);
     playSound(isHead ? 'headshot' : 'hit');
     showHitMarker();
     if (point) spawnImpact(point, new THREE.Vector3(0, 1, 0));
@@ -1650,6 +1673,8 @@ function updateEnemies(dt) {
     const now = Date.now();
     for (const e of enemies) {
         if (!e.alive) continue;
+        const hb = e.mesh.userData.hpBar;
+        if (hb) hb.quaternion.copy(camera.quaternion);
         if (e.roof) {
             // Stationary rooftop sniper: holds position, tracks and fires at long range
             const toPlayer = new THREE.Vector3().subVectors(player.pos, e.mesh.position);
@@ -1664,19 +1689,9 @@ function updateEnemies(dt) {
                 gunPos.y += 0.8;
                 if (hasLineOfSight(gunPos, new THREE.Vector3().copy(player.pos))) {
                     e.lastFire = now;
-                    const hitChance = Math.max(0.15, 0.7 - dist * 0.008);
-                    if (Date.now() >= spawnProtUntil && Math.random() < hitChance) {
-                        const dmg = e.damage * (0.8 + Math.random() * 0.4);
-                        player.health -= dmg;
-                        playSound('hurt');
-                        showDamageOverlay();
-                        if (player.health <= 0) {
-                            player.health = 0;
-                            gameOver();
-                        }
-                        updateHUD();
-                    }
-                    spawnEnemyBullet(e.mesh.position.clone());
+                    const acc = Math.min(0.9, Math.max(0.15, 0.7 - dist * 0.008) + level * 0.008);
+                    const dmg = e.damage * (0.8 + Math.random() * 0.4);
+                    spawnEnemyBullet(e.mesh.position.clone(), dmg, acc);
                 }
             }
             e.mesh.position.y = e.roofY;
@@ -1709,32 +1724,23 @@ function updateEnemies(dt) {
                 e.mesh.position.z = testPos.z;
             }
             const strafeVec = new THREE.Vector3(-dirToPlayer.z, 0, dirToPlayer.x).multiplyScalar(e.strafeDir);
-            const strafeX = e.mesh.position.x + strafeVec.x * e.speed * 0.4 * dt;
-            const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * 0.4 * dt;
+            const strafeMul = 0.35 + (e.dodge || 0.3) * 0.6;
+            const strafeX = e.mesh.position.x + strafeVec.x * e.speed * strafeMul * dt;
+            const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * strafeMul * dt;
             const strafePos = { x: strafeX, z: strafeZ };
             pushOutOfBuildings(strafePos, 0.5);
             e.mesh.position.x = strafePos.x;
             e.mesh.position.z = strafePos.z;
-            if (Math.random() < 0.005) e.strafeDir *= -1;
+            if (Math.random() < 0.003 + (e.dodge || 0.3) * 0.008) e.strafeDir *= -1;
             if (now - e.lastFire > e.fireRate && dist < 35) {
                 const gunPos = new THREE.Vector3().copy(e.mesh.position);
                 gunPos.y += 0.8;
                 const playerAim = new THREE.Vector3().copy(player.pos);
                 if (hasLineOfSight(gunPos, playerAim)) {
                     e.lastFire = now;
-                    const hitChance = Math.max(0.1, 0.8 - dist * 0.015);
-                    if (Date.now() >= spawnProtUntil && Math.random() < hitChance) {
-                        const dmg = e.damage * (0.8 + Math.random() * 0.4);
-                        player.health -= dmg;
-                        playSound('hurt');
-                        showDamageOverlay();
-                        if (player.health <= 0) {
-                            player.health = 0;
-                            gameOver();
-                        }
-                        updateHUD();
-                    }
-                    spawnEnemyBullet(e.mesh.position.clone());
+                    const acc = Math.min(0.9, Math.max(0.1, 0.8 - dist * 0.015) + level * 0.008);
+                    const dmg = e.damage * (0.8 + Math.random() * 0.4);
+                    spawnEnemyBullet(e.mesh.position.clone(), dmg, acc);
                 }
             }
         } else {
@@ -1764,8 +1770,9 @@ function updateEnemies(dt) {
     }
 }
 
-function spawnEnemyBullet(from) {
-    // Elongated glowing tracer oriented along travel direction - reads as a real round
+function spawnEnemyBullet(from, damage, acc) {
+    // Elongated glowing tracer oriented along travel direction - reads as a real round.
+    // Damage applies ONLY if the round physically reaches the player: walls stop it cold.
     const geo = new THREE.BoxGeometry(0.035, 0.035, 0.5);
     const mat = new THREE.MeshBasicMaterial({
         color: 0xff7043, transparent: true, opacity: 0.95,
@@ -1780,11 +1787,11 @@ function spawnEnemyBullet(from) {
     spawnTracer(mesh.position.clone(), mesh.position.clone().add(dir.clone().multiplyScalar(1.5)), 0xff8a50, 60);
     scene.add(mesh);
     const start = Date.now();
-    let blocked = false;
+    let done = false;
     projectiles.push({
         mesh, type: 'bullet', born: start,
         update: () => {
-            if (blocked) return;
+            if (done) return;
             const spd = 60;
             const prevPos = mesh.position.clone();
             mesh.position.x += dir.x * spd * 0.016;
@@ -1793,11 +1800,29 @@ function spawnEnemyBullet(from) {
             const ray = new THREE.Raycaster(prevPos, dir, 0, spd * 0.016 + 0.1);
             const hits = ray.intersectObjects(levelBuildings);
             if (hits.length > 0) {
+                // stopped by a wall — harmless spark, no damage through cover
                 mesh.position.copy(hits[0].point);
-                blocked = true;
+                done = true;
                 mat.color.setHex(0x888888);
+                mat.opacity = 0.4;
+                return;
             }
-            if (Date.now() - start > 2000) scene.remove(mesh);
+            if (mesh.position.distanceTo(player.pos) < 1.1) {
+                done = true;
+                if (mesh.parent) scene.remove(mesh);
+                if (Date.now() >= spawnProtUntil && Math.random() < (acc === undefined ? 0.5 : acc)) {
+                    player.health -= damage || 8;
+                    playSound('hurt');
+                    showDamageOverlay();
+                    if (player.health <= 0) {
+                        player.health = 0;
+                        gameOver();
+                    }
+                    updateHUD();
+                }
+                return;
+            }
+            if (Date.now() - start > 2000 && mesh.parent) scene.remove(mesh);
         }
     });
 }
