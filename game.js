@@ -24,11 +24,11 @@ const CITIES = [
 const WEAPONS = [
     { id: 'revolver', name: 'REVOLVER .44', slot: 1, unlock: 1, damage: 38, headMult: 2.5, fireRate: 300, mag: 6, reloadTime: 1100, spread: 0.01, auto: false, sfx: 'gunshot', adsZoom: 62, tracer: { color: 0xffd27a, width: 0.022, life: 90 } },
     { id: 'mp5', name: 'MP5 SMG', slot: 2, unlock: 2, damage: 16, headMult: 3.0, fireRate: 85, mag: 25, reloadTime: 1600, spread: 0.02, auto: true, sfx: 'smg', adsZoom: 58, tracer: { color: 0x7df9ff, width: 0.015, life: 60 } },
-    { id: 'ak47', name: 'AK-47', slot: 3, unlock: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 47, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'rifle', adsZoom: 50, tracer: { color: 0xffb457, width: 0.018, life: 75 } },
+    { id: 'ak47', name: 'AK-47', slot: 3, unlock: 3, damage: 27, headMult: 3.0, fireRate: 110, mag: 47, reloadTime: 1900, spread: 0.025, auto: true, sfx: 'ak', adsZoom: 50, tracer: { color: 0xffb457, width: 0.018, life: 75 } },
     { id: 'm1014', name: 'M1014 SHOTGUN', slot: 4, unlock: 4, damage: 9, headMult: 2.0, fireRate: 720, mag: 10, reloadTime: 2400, spread: 0.08, auto: false, pellets: 7, sfx: 'shotgun', adsZoom: 62, tracer: { color: 0xfff2b0, width: 0.02, life: 70 } },
-    { id: 'scar', name: 'SCAR-L', slot: 5, unlock: 5, damage: 30, headMult: 3.2, fireRate: 130, mag: 30, reloadTime: 1800, spread: 0.018, auto: true, sfx: 'rifle', adsZoom: 42, tracer: { color: 0x9dff70, width: 0.017, life: 75 } },
-    { id: 'awp', name: 'AWP SNIPER', slot: 6, unlock: 7, damage: 110, headMult: 2.0, fireRate: 1400, mag: 8, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'rifle', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.013, life: 110 } },
-    { id: 'rpg', name: 'RPG-7', slot: 7, unlock: 9, damage: 130, headMult: 1.0, fireRate: 1800, mag: 1, reloadTime: 2800, spread: 0.005, auto: false, sfx: 'shotgun', adsZoom: 60, rocket: true, tracer: { color: 0xff6a3c, width: 0.04, life: 120 } },
+    { id: 'scar', name: 'SCAR-L', slot: 5, unlock: 5, damage: 30, headMult: 3.2, fireRate: 130, mag: 30, reloadTime: 1800, spread: 0.018, auto: true, sfx: 'scar', adsZoom: 42, tracer: { color: 0x9dff70, width: 0.017, life: 75 } },
+    { id: 'awp', name: 'AWP SNIPER', slot: 6, unlock: 7, damage: 110, headMult: 2.0, fireRate: 1400, mag: 8, reloadTime: 2600, spread: 0.03, auto: false, sfx: 'awp', adsZoom: 18, scope: true, tracer: { color: 0xffffff, width: 0.013, life: 110 } },
+    { id: 'rpg', name: 'RPG-7', slot: 7, unlock: 9, damage: 130, headMult: 1.0, fireRate: 1800, mag: 1, reloadTime: 2800, spread: 0.005, auto: false, sfx: 'rpg', adsZoom: 60, rocket: true, tracer: { color: 0xff6a3c, width: 0.04, life: 120 } },
 ];
 
 function isUnlocked(idx) {
@@ -183,40 +183,159 @@ function hasLineOfSight(from, to) {
 }
 
 let audioCtx;
-function initAudio() { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+let noiseBuf = null;
+let masterGain = null;
+
+function initAudio() {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = (settings.volume || 80) / 100;
+    masterGain.connect(audioCtx.destination);
+    // shared 2s white-noise buffer — every gunshot is sculpted from this
+    const len = audioCtx.sampleRate * 2;
+    noiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+}
+
+function masterVol() {
+    if (masterGain && audioCtx) masterGain.gain.value = (settings.volume || 80) / 100;
+}
+
+// filtered noise burst: the "crack" / "body" of a real report
+function noiseHit(when, dur, filterType, freq, vol, freqEnd) {
+    const src = audioCtx.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    const f = audioCtx.createBiquadFilter();
+    f.type = filterType;
+    f.frequency.setValueAtTime(freq, when);
+    if (freqEnd) f.frequency.exponentialRampToValueAtTime(freqEnd, when + dur);
+    f.Q.value = 0.7;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, when);
+    g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+    src.connect(f); f.connect(g); g.connect(masterGain);
+    src.start(when, Math.random() * 1.5);
+    src.stop(when + dur + 0.05);
+}
+
+// low sine drop: chest-thump of the muzzle blast
+function thump(when, f0, f1, dur, vol) {
+    const o = audioCtx.createOscillator();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f0, when);
+    o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), when + dur);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, when);
+    g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+    o.connect(g); g.connect(masterGain);
+    o.start(when); o.stop(when + dur + 0.05);
+}
+
+// short metallic action clang (AK twang, slide/bolt clack)
+function clang(when, freq, dur, vol) {
+    const o = audioCtx.createOscillator();
+    o.type = 'square';
+    o.frequency.setValueAtTime(freq, when);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(vol, when);
+    g.gain.exponentialRampToValueAtTime(0.001, when + dur);
+    o.connect(g); g.connect(masterGain);
+    o.start(when); o.stop(when + dur + 0.02);
+}
+
+// distant echo slap off the city
+function echoSlap(when, delay, dur, freq, vol) {
+    const t = when + delay;
+    const src = audioCtx.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = freq;
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f); f.connect(g); g.connect(masterGain);
+    src.start(t, Math.random());
+    src.stop(t + dur + 0.05);
+}
+
+// per-weapon recipes tuned to each gun's real-world signature
+function gunRecipe(id, now) {
+    switch (id) {
+        case 'revolver': // .44 Magnum — heavy contained BANG, deep boom, short
+            noiseHit(now, 0.09, 'highpass', 1700, 0.55);
+            noiseHit(now, 0.22, 'lowpass', 900, 0.55);
+            thump(now, 120, 38, 0.25, 0.55);
+            echoSlap(now, 0.18, 0.25, 1200, 0.12);
+            break;
+        case 'mp5': // 9mm SMG — light high-pitched PAP, little bass
+            noiseHit(now, 0.055, 'bandpass', 2900, 0.42);
+            noiseHit(now, 0.1, 'lowpass', 1500, 0.3);
+            thump(now, 210, 95, 0.08, 0.26);
+            echoSlap(now, 0.12, 0.12, 1800, 0.06);
+            break;
+        case 'ak': // 7.62x39 — deep aggressive BARK + stamped-steel twang
+            noiseHit(now, 0.1, 'bandpass', 1500, 0.55);
+            noiseHit(now, 0.28, 'lowpass', 700, 0.6);
+            thump(now, 110, 36, 0.3, 0.6);
+            clang(now + 0.03, 620, 0.06, 0.09);
+            echoSlap(now, 0.2, 0.3, 900, 0.15);
+            break;
+        case 'shotgun': // 12-gauge — cannon BOOM, long gut-punch tail
+            noiseHit(now, 0.12, 'highpass', 1100, 0.55);
+            noiseHit(now, 0.45, 'lowpass', 480, 0.65);
+            thump(now, 90, 28, 0.5, 0.65);
+            echoSlap(now, 0.22, 0.4, 750, 0.18);
+            break;
+        case 'scar': // 5.56 — crisp tight crack, brighter than the AK
+            noiseHit(now, 0.08, 'bandpass', 2400, 0.5);
+            noiseHit(now, 0.16, 'lowpass', 1100, 0.45);
+            thump(now, 160, 60, 0.14, 0.42);
+            clang(now + 0.02, 900, 0.04, 0.06);
+            echoSlap(now, 0.16, 0.2, 1400, 0.1);
+            break;
+        case 'awp': // magnum sniper — thunderclap + long rolling echo
+            noiseHit(now, 0.14, 'highpass', 1900, 0.6);
+            noiseHit(now, 0.5, 'lowpass', 750, 0.6);
+            thump(now, 100, 30, 0.55, 0.6);
+            echoSlap(now, 0.25, 0.45, 900, 0.2);
+            echoSlap(now, 0.55, 0.5, 600, 0.1);
+            break;
+        case 'rpg': // launch: rising WHOOSH + deep launcher whump
+            noiseHit(now, 0.45, 'lowpass', 350, 0.5, 2600);
+            thump(now, 75, 30, 0.5, 0.55);
+            echoSlap(now, 0.3, 0.3, 700, 0.12);
+            break;
+        default:
+            noiseHit(now, 0.09, 'bandpass', 1800, 0.45);
+            noiseHit(now, 0.2, 'lowpass', 900, 0.45);
+            thump(now, 130, 45, 0.2, 0.45);
+            break;
+    }
+}
 
 function playSound(type) {
     if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(masterGain);
     const now = audioCtx.currentTime;
     switch (type) {
-        case 'gunshot':
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
-            osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-            gain.gain.setValueAtTime(0.3, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-            osc.start(now); osc.stop(now + 0.15); break;
-        case 'smg':
-            osc.type = 'square'; osc.frequency.setValueAtTime(200, now);
-            osc.frequency.exponentialRampToValueAtTime(60, now + 0.06);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-            osc.start(now); osc.stop(now + 0.08); break;
-        case 'rifle':
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(180, now);
-            osc.frequency.exponentialRampToValueAtTime(50, now + 0.12);
-            gain.gain.setValueAtTime(0.25, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-            osc.start(now); osc.stop(now + 0.18); break;
-        case 'shotgun':
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(100, now);
-            osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
-            gain.gain.setValueAtTime(0.35, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc.start(now); osc.stop(now + 0.3); break;
+        case 'gunshot': gunRecipe('revolver', now); break;
+        case 'smg': gunRecipe('mp5', now); break;
+        case 'rifle': gunRecipe('scar', now); break;
+        case 'ak': gunRecipe('ak', now); break;
+        case 'scar': gunRecipe('scar', now); break;
+        case 'awp': gunRecipe('awp', now); break;
+        case 'rpg': gunRecipe('rpg', now); break;
+        case 'shotgun': gunRecipe('shotgun', now); break;
         case 'hit':
             osc.type = 'sine'; osc.frequency.setValueAtTime(800, now);
             gain.gain.setValueAtTime(0.15, now);
@@ -234,11 +353,11 @@ function playSound(type) {
             gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
             osc.start(now); osc.stop(now + 0.2); break;
         case 'explosion':
-            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(90, now);
-            osc.frequency.exponentialRampToValueAtTime(28, now + 0.6);
-            gain.gain.setValueAtTime(0.4, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
-            osc.start(now); osc.stop(now + 0.7); break;
+            noiseHit(now, 0.5, 'lowpass', 400, 0.7);
+            noiseHit(now, 0.15, 'highpass', 900, 0.4);
+            thump(now, 70, 24, 0.8, 0.7);
+            echoSlap(now, 0.3, 0.6, 500, 0.2);
+            break;
         case 'throw':
             osc.type = 'sine'; osc.frequency.setValueAtTime(300, now);
             osc.frequency.exponentialRampToValueAtTime(500, now + 0.12);
@@ -2111,6 +2230,7 @@ window.adjustSetting = function(key, delta) {
         settings.fov = Math.max(50, Math.min(110, settings.fov + delta));
     } else if (key === 'volume') {
         settings.volume = Math.max(0, Math.min(100, settings.volume + delta));
+        masterVol();
     }
     refreshSettingsUI();
 };
