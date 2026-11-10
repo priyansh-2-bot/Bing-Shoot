@@ -1434,6 +1434,13 @@ function generateLevel(lvl) {
 }
 
 function spawnSurvivalWave(waveNum) {
+    // Remove the previous wave's defeated enemies before adding another wave.
+    // Their death animations pause during intermission, so do not retain those meshes.
+    for (const e of enemies) {
+        if ((e.dying || !e.alive) && e.mesh && e.mesh.parent) scene.remove(e.mesh);
+    }
+    enemies = enemies.filter(e => e.alive && !e.dying && e.mesh);
+
     const arena = 50 + level * 2;
     const enemyCount = Math.min(20, 4 + waveNum * 2);
     const types = waveNum <= 2 ? ['grunt'] : waveNum <= 4 ? ['grunt', 'rifle'] : waveNum <= 6 ? ['grunt', 'rifle', 'soldier'] : ['grunt', 'rifle', 'soldier', 'sniper', 'heavy'];
@@ -3365,7 +3372,15 @@ function startGame(mode = 'campaign') {
     }
 
     try {
-        initAudio();
+        try {
+            initAudio();
+        } catch (audioError) {
+            // Sound is optional. A browser audio restriction must not block gameplay.
+            console.warn('Audio initialization skipped:', audioError);
+            audioCtx = null;
+            masterGain = null;
+            noiseBuf = null;
+        }
         if (!threeInitialized) initThree();
         else if (renderer) {
             renderer.domElement.style.display = 'block';
