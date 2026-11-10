@@ -1180,6 +1180,7 @@ function generateLevel(lvl) {
             ex += ((ex - spawnX) / (fromSpawn || 1)) * push;
             ez += ((ez - spawnZ) / (fromSpawn || 1)) * push;
         }
+        cfg.type = type;
         const body = buildEnemyMesh(cfg);
         body.position.set(ex, 1.0, ez);
         scene.add(body);
@@ -1206,6 +1207,7 @@ function generateLevel(lvl) {
         }
         const scfg = ENEMY_TYPES.sniper;
         for (const s of spots) {
+        scfg.type = 'sniper';
             const body = buildEnemyMesh(scfg);
             const roofY = s.h + 1.0;
             body.position.set(s.cx, roofY, s.cz);
@@ -1426,14 +1428,14 @@ function spawnTracer(from, to, colorHex, lifeMs, width) {
 function damageEnemy(e, dmg, point, zone) {
     if (!e.alive || e.dying) return;
 
-    // Head = 1 shot kill. Torso and limbs = 2 shots from full health.
+    // Head = 1 shot kill. Torso = 1 shot kill. Arms and legs = 2 shots from full health.
     // Zone-based override only applies to player gunshots (dmg <= 0 means "compute from zone").
     // Explosion / fire pass their own dmg values (> 0) and are used as-is.
     if (dmg <= 0) {
-        if (zone === 'head') {
+        if (zone === 'head' || zone === 'torso') {
             dmg = e.hp; // instant kill
         } else {
-            dmg = e.maxHp * 0.5; // torso & limbs take exactly 2 shots
+            dmg = e.maxHp * 0.5; // arms & legs take exactly 2 shots
         }
     }
 
@@ -1844,12 +1846,14 @@ function animateEnemy(e, dt, moving) {
     if (moving) {
         e.mesh.userData.walkTime = t + dt * 8 * speedFactor;
     } else {
-        // idle breathing
+        // idle breathing — only when not alert/tracking the player
         e.mesh.userData.walkTime = t + dt * 1.5;
         const breath = Math.sin(e.mesh.userData.walkTime * 2) * 0.012;
         e.mesh.scale.setScalar(1 + breath);
-        p.torso.rotation.x = Math.sin(e.mesh.userData.walkTime) * 1.5 * (Math.PI / 180);
-        p.head.rotation.x = Math.sin(e.mesh.userData.walkTime * 1.5) * 2 * (Math.PI / 180);
+        if (!e.alert) {
+            p.torso.rotation.x = Math.sin(e.mesh.userData.walkTime) * 1.5 * (Math.PI / 180);
+            p.head.rotation.x = Math.sin(e.mesh.userData.walkTime * 1.5) * 2 * (Math.PI / 180);
+        }
         e.mesh.position.y = 1.0 + Math.sin(e.mesh.userData.walkTime) * 0.015;
         return;
     }
@@ -1943,6 +1947,7 @@ function updateEnemies(dt) {
             if (head) {
                 head.lookAt(e.mesh.position.x + dirToPlayer.x, e.mesh.position.y + 1.0 + dirToPlayer.y, e.mesh.position.z + dirToPlayer.z);
             }
+            e.alert = true; // rooftop snipers always track the player
             animateEnemy(e, dt, false); // rooftop sniper: idle breathing
             if (dist < 60 && now - e.lastFire > e.fireRate) {
                 const gunPos = new THREE.Vector3().copy(e.mesh.position);
@@ -1991,9 +1996,6 @@ function updateEnemies(dt) {
             const strafeX = e.mesh.position.x + strafeVec.x * e.speed * strafeMul * dt;
             const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * strafeMul * dt;
             if (Math.abs(strafeX - e.mesh.position.x) > 0.001 || Math.abs(strafeZ - e.mesh.position.z) > 0.001) moving = true;
-            const strafeMul = 0.35 + (e.dodge || 0.3) * 0.6;
-            const strafeX = e.mesh.position.x + strafeVec.x * e.speed * strafeMul * dt;
-            const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * strafeMul * dt;
             const strafePos = { x: strafeX, z: strafeZ };
             pushOutOfBuildings(strafePos, 0.5);
             e.mesh.position.x = strafePos.x;
