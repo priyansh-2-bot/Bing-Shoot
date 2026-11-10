@@ -1844,7 +1844,7 @@ function animateEnemy(e, dt, moving) {
     const isSniper = e.type === 'sniper';
 
     if (moving) {
-        e.mesh.userData.walkTime = t + dt * 8 * speedFactor;
+        e.mesh.userData.walkTime = t + dt * 2 * speedFactor;
     } else {
         // idle breathing — only when not alert/tracking the player
         e.mesh.userData.walkTime = t + dt * 1.5;
@@ -1860,7 +1860,7 @@ function animateEnemy(e, dt, moving) {
 
     const wt = e.mesh.userData.walkTime;
     const legAmp = isHeavy ? 22 : isSniper ? 10 : 24;
-    const legFreq = isHeavy ? 6 : isSniper ? 9 : 8;
+    const legFreq = isHeavy ? 2 : isSniper ? 2.5 : 3;
 
     // Legs: thighs swing opposite, shins bend at knees
     const thighSwing = Math.sin(wt * legFreq) * legAmp;
@@ -2459,6 +2459,7 @@ function restartGame() {
     gameState = 'playing';
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('bg-character').classList.add('bg-hidden');
     document.body.requestPointerLock();
 }
 window.restartGame = restartGame;
@@ -2496,6 +2497,7 @@ function quitToMenu() {
     document.getElementById('hud').classList.add('hidden');
     document.getElementById('blocker').classList.remove('show');
     document.getElementById('blocker').classList.remove('hidden');
+    document.getElementById('bg-character').classList.remove('bg-hidden');
     document.exitPointerLock();
 }
 
@@ -2548,6 +2550,7 @@ function startGame() {
     gameState = 'playing';
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('bg-character').classList.add('bg-hidden');
     document.body.requestPointerLock();
     gameLoop();
 }
