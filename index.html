@@ -1705,24 +1705,22 @@
             // Phase 1: DOM ready
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', function() {
-                    loadingStatus.textContent = 'DOM loaded · Loading modules...';
+                    loadingStatus.textContent = 'DOM ready · Loading engine...';
                 });
             } else {
-                loadingStatus.textContent = 'DOM loaded · Loading modules...';
+                loadingStatus.textContent = 'DOM ready · Loading engine...';
             }
 
-            // Phase 2: All resources (including Three.js module) loaded
-            window.addEventListener('load', function() {
-                loadingStatus.textContent = 'Resources loaded · Initializing...';
-                // Give the UI a brief moment to render, then hide
-                setTimeout(hideLoading, 300);
-            });
-
-            // Fallback: hide after 3 seconds if load never fires
-            setTimeout(hideLoading, 3000);
-
-            // Expose for game.js to call if it needs to delay
+            // Expose for game.js to call after Three.js initialization
             window.__bingShootLoadingReady = hideLoading;
+
+            // Fallback: auto-hide after 4 seconds if game.js never signals
+            setTimeout(function() {
+                if (!hidden) {
+                    loadingStatus.textContent = 'Engine ready';
+                    hideLoading();
+                }
+            }, 4000);
         })();
     </script>
 </body>

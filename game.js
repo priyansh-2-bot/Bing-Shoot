@@ -3282,6 +3282,10 @@ document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsBackBtn').addEventListener('click', closeSettings);
 document.getElementById('quitBtn').addEventListener('click', quitToMenu);
 
+// Expose inline onclick handlers to window (module scope isolation)
+window.restartGame = restartGame;
+window.quitToMenu = quitToMenu;
+
 function startGame(mode = 'campaign') {
     gameMode = mode;
     // WebGL compatibility check
@@ -3314,6 +3318,10 @@ function startGame(mode = 'campaign') {
     setupInput();
     generateLevel(level);
     gameState = 'playing';
+    // Signal loading screen that engine is ready
+    if (typeof window.__bingShootLoadingReady === 'function') {
+        window.__bingShootLoadingReady();
+    }
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('bg-character').classList.add('bg-hidden');
