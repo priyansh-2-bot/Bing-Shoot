@@ -920,32 +920,159 @@ function buildCitySet(ci, arena) {
 }
 
 function buildEnemyMesh(cfg) {
-    const body = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.4, 1.2, 4, 8),
-        new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.6 })
-    );
+    const skinM = new THREE.MeshStandardMaterial({ color: 0xc98d64, roughness: 0.7 });
+    const vestM = new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.6 });
+    const gunM = new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.5, metalness: 0.6 });
+
+    const body = new THREE.Group();
     body.castShadow = true;
+    body.userData.hpBar = null;
+    body.userData.hpFill = null;
+    body.userData.parts = null;
+    body.userData.walkTime = 0;
+
+    // ---- Head ----
     const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 8, 8),
-        new THREE.MeshStandardMaterial({ color: 0x3A3A3A })
+        new THREE.SphereGeometry(0.28, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.6 })
     );
-    head.position.y = 1.0;
+    head.position.set(0, 1.28, 0);
+    head.userData.zone = 'head';
+    head.castShadow = true;
     body.add(head);
+
     const visor = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.3, 0.1),
-        new THREE.MeshBasicMaterial({ color: 0xFF2020 })
+        new THREE.PlaneGeometry(0.34, 0.13),
+        new THREE.MeshBasicMaterial({ color: 0xff2020 })
     );
-    visor.position.set(0, 0.05, 0.28);
+    visor.position.set(0, 0.03, 0.27);
     head.add(visor);
-    const arm = new THREE.Mesh(
-        new THREE.BoxGeometry(0.08, 0.08, 0.5),
-        new THREE.MeshStandardMaterial({ color: 0x2A2A2A })
+
+    // helmet for soldier / sniper / heavy
+    if (cfg.type === 'soldier' || cfg.type === 'sniper' || cfg.type === 'heavy') {
+        const helmet = new THREE.Mesh(
+            new THREE.SphereGeometry(0.32, 12, 10),
+            new THREE.MeshStandardMaterial({ color: 0x3a3f48, roughness: 0.4, metalness: 0.6 })
+        );
+        helmet.position.set(0, 0.02, 0);
+        helmet.scale.setScalar(1.06);
+        head.add(helmet);
+        body.userData.helmet = helmet;
+    }
+
+    // ---- Torso ----
+    const torso = new THREE.Mesh(
+        new THREE.BoxGeometry(0.5, 0.75, 0.34),
+        vestM
     );
-    arm.position.set(0.35, -0.1, 0.2);
-    body.add(arm);
-    // thin overhead HP bar (billboarded each frame, removed with the body on death)
+    torso.position.set(0, 0.82, 0);
+    torso.userData.zone = 'torso';
+    torso.castShadow = true;
+    body.add(torso);
+
+    const chest = new THREE.Mesh(
+        new THREE.BoxGeometry(0.44, 0.42, 0.18),
+        new THREE.MeshStandardMaterial({ color: 0x1a1c22, roughness: 0.5 })
+    );
+    chest.position.set(0, 0.9, 0.19);
+    torso.add(chest);
+
+    // ---- Hips ----
+    const hips = new THREE.Group();
+    hips.position.set(0, 0.38, 0);
+    body.add(hips);
+
+    // ---- Legs: thigh + shin + foot ----
+    function buildLeg(side) {
+        const hip = new THREE.Group();
+        hip.position.set(side * 0.2, 0.38, 0);
+        hips.add(hip);
+
+        const thigh = new THREE.Mesh(
+            new THREE.BoxGeometry(0.18, 0.62, 0.2),
+            skinM
+        );
+        thigh.position.set(0, -0.34, 0);
+        thigh.userData.zone = 'leg';
+        thigh.castShadow = true;
+        hip.add(thigh);
+
+        const shin = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.62, 0.18),
+            skinM
+        );
+        shin.position.set(0, -0.66, 0);
+        shin.userData.zone = 'leg';
+        shin.castShadow = true;
+        thigh.add(shin);
+
+        const foot = new THREE.Mesh(
+            new THREE.BoxGeometry(0.24, 0.12, 0.34),
+            new THREE.MeshStandardMaterial({ color: 0x14100c, roughness: 0.8 })
+        );
+        foot.position.set(0, -1.0, 0.06);
+        foot.userData.zone = 'leg';
+        foot.castShadow = true;
+        shin.add(foot);
+
+        return { hip, thigh, shin, foot };
+    }
+
+    const legL = buildLeg(-1);
+    const legR = buildLeg(1);
+
+    // ---- Arms: upper arm + forearm + hand ----
+    function buildArm(side) {
+        const shoulder = new THREE.Group();
+        shoulder.position.set(side * 0.34, 1.0, 0);
+        body.add(shoulder);
+
+        const upperArm = new THREE.Mesh(
+            new THREE.BoxGeometry(0.16, 0.5, 0.18),
+            skinM
+        );
+        upperArm.position.set(0, -0.28, 0);
+        upperArm.userData.zone = 'arm';
+        upperArm.castShadow = true;
+        shoulder.add(upperArm);
+
+        const foreArm = new THREE.Mesh(
+            new THREE.BoxGeometry(0.14, 0.5, 0.16),
+            skinM
+        );
+        foreArm.position.set(0, -0.55, 0);
+        foreArm.userData.zone = 'arm';
+        foreArm.castShadow = true;
+        upperArm.add(foreArm);
+
+        const hand = new THREE.Mesh(
+            new THREE.BoxGeometry(0.12, 0.12, 0.14),
+            skinM
+        );
+        hand.position.set(0, -0.56, 0);
+        hand.userData.zone = 'arm';
+        hand.castShadow = true;
+        foreArm.add(hand);
+
+        return { shoulder, upperArm, foreArm, hand };
+    }
+
+    const armL = buildArm(-1);
+    const armR = buildArm(1);
+
+    // ---- Visible carried gun (right hand) ----
+    const gunId = cfg.type === 'sniper' ? 'awp' : cfg.type === 'heavy' ? 'rpg' : 'ak47';
+    const builtGun = buildGunModel(gunId);
+    const enemyGun = builtGun.group.clone();
+    enemyGun.scale.setScalar(0.7);
+    enemyGun.position.set(0, -0.02, 0.22);
+    enemyGun.rotation.set(0, Math.PI / 2, 0);
+    armR.hand.add(enemyGun);
+    body.userData.enemyGun = enemyGun;
+
+    // ---- HP bar (billboard) ----
     const barGroup = new THREE.Group();
-    barGroup.position.set(0, 1.78, 0);
+    barGroup.position.set(0, 1.5, 0);
     const barBg = new THREE.Mesh(
         new THREE.PlaneGeometry(0.9, 0.09),
         new THREE.MeshBasicMaterial({ color: 0x101418, transparent: true, opacity: 0.75, depthWrite: false })
@@ -961,6 +1088,9 @@ function buildEnemyMesh(cfg) {
     body.add(barGroup);
     body.userData.hpBar = barGroup;
     body.userData.hpFill = barFill;
+
+    body.userData.parts = { head, torso, hips, legL, legR, armL, armR };
+
     return body;
 }
 
@@ -1058,7 +1188,8 @@ function generateLevel(lvl) {
             damage: cfg.damage * dmgScale, fireRate: cfg.fireRate * rateScale, score: cfg.score,
             lastFire: 0, state: 'patrol',
             patrolTarget: new THREE.Vector3((Math.random()-0.5)*arena, 0, (Math.random()-0.5)*arena),
-            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true, roof: false, dodge: getLevelDodge(lvl)
+            alertTimer: 0, strafeDir: Math.random() > 0.5 ? 1 : -1, alive: true, roof: false, dodge: getLevelDodge(lvl),
+            walkTime: 0, dying: false
         });
     }
     // Rooftop snipers: max 2 per level, from level 4. Stationary, long range.
@@ -1084,7 +1215,8 @@ function generateLevel(lvl) {
                 damage: scfg.damage * dmgScale, fireRate: scfg.fireRate * rateScale, score: scfg.score + 20,
                 lastFire: 0, state: 'roof',
                 patrolTarget: new THREE.Vector3(s.cx, 0, s.cz),
-                alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY, dodge: getLevelDodge(lvl)
+                alertTimer: 0, strafeDir: 1, alive: true, roof: true, roofY, dodge: getLevelDodge(lvl),
+                walkTime: 0, dying: false
             });
         }
         levelRoofSnipers = spots.length;
@@ -1291,18 +1423,41 @@ function spawnTracer(from, to, colorHex, lifeMs, width) {
     });
 }
 
-function damageEnemy(e, dmg, point, isHead) {
-    e.hp -= dmg;
+function damageEnemy(e, dmg, point, zone) {
+    if (!e.alive || e.dying) return;
+
+    // Head = 1 shot kill. Torso and limbs = 2 shots from full health.
+    // Zone-based override only applies to player gunshots (dmg <= 0 means "compute from zone").
+    // Explosion / fire pass their own dmg values (> 0) and are used as-is.
+    if (dmg <= 0) {
+        if (zone === 'head') {
+            dmg = e.hp; // instant kill
+        } else {
+            dmg = e.maxHp * 0.5; // torso & limbs take exactly 2 shots
+        }
+    }
+
+    e.hp = Math.max(0, e.hp - dmg);
     updateEnemyHpBar(e);
-    playSound(isHead ? 'headshot' : 'hit');
+    playSound(zone === 'head' ? 'headshot' : 'hit');
     showHitMarker();
     if (point) spawnImpact(point, new THREE.Vector3(0, 1, 0));
-    if (e.hp <= 0 && e.alive) {
-        e.alive = false;
-        scene.remove(e.mesh);
+
+    if (e.hp <= 0) {
+        e.dying = true;
+        e.deathTime = 0;
+        e.deathZone = zone === 'head' ? 'head' : 'body'; // 'head' | 'body'
+        e.fallDir = Math.random() > 0.5 ? 1 : -1;
+        e.limpVel = {
+            lthigh: (Math.random() - 0.5) * 2.5,
+            rthigh: (Math.random() - 0.5) * 2.5,
+            larm: (Math.random() - 0.5) * 2.5,
+            rarm: (Math.random() - 0.5) * 2.5,
+        };
         score += e.score;
         kills++;
-        spawnDeathEffect(e.mesh.position.clone());
+        updateHUD();
+        // mesh stays in scene; death animation runs in updateEnemies
     }
 }
 
@@ -1357,7 +1512,7 @@ function explode(pos, radius, maxDmg) {
         const d = e.mesh.position.distanceTo(pos);
         if (d < radius) {
             const fall = 1 - (d / radius) * 0.6;
-            damageEnemy(e, maxDmg * fall, null, false);
+            damageEnemy(e, maxDmg * fall, null, 'torso');
         }
     }
     updateHUD();
@@ -1604,9 +1759,17 @@ function shoot() {
             const hits = ray.intersectObject(e.mesh, true);
             if (hits.length > 0) {
                 endPoint = hits[0].point.clone();
-                const isHead = hits[0].object === e.mesh.children[0] || (hits[0].object.parent && hits[0].object.parent === e.mesh.children[0]);
-                const dmg = isHead ? w.damage * w.headMult : w.damage;
-                damageEnemy(e, dmg, hits[0].point, isHead);
+                // walk up the parent chain to find which body part was hit
+                let zone = 'torso';
+                let hitObj = hits[0].object;
+                while (hitObj && hitObj !== e.mesh) {
+                    if (hitObj.userData && hitObj.userData.zone) {
+                        zone = hitObj.userData.zone;
+                        break;
+                    }
+                    hitObj = hitObj.parent;
+                }
+                damageEnemy(e, 0, hits[0].point, zone);
                 hitEnemy = true;
                 break;
             }
@@ -1669,10 +1832,106 @@ function spawnImpact(pos, normal) {
     }
 }
 
+// Walk / idle animation for the enemy body parts
+function animateEnemy(e, dt, moving) {
+    const p = e.mesh.userData.parts;
+    if (!p) return;
+    const t = e.mesh.userData.walkTime;
+    const speedFactor = e.speed || 1.5;
+    const isHeavy = e.type === 'heavy';
+    const isSniper = e.type === 'sniper';
+
+    if (moving) {
+        e.mesh.userData.walkTime = t + dt * 8 * speedFactor;
+    } else {
+        // idle breathing
+        e.mesh.userData.walkTime = t + dt * 1.5;
+        const breath = Math.sin(e.mesh.userData.walkTime * 2) * 0.012;
+        e.mesh.scale.setScalar(1 + breath);
+        p.torso.rotation.x = Math.sin(e.mesh.userData.walkTime) * 1.5 * (Math.PI / 180);
+        p.head.rotation.x = Math.sin(e.mesh.userData.walkTime * 1.5) * 2 * (Math.PI / 180);
+        e.mesh.position.y = 1.0 + Math.sin(e.mesh.userData.walkTime) * 0.015;
+        return;
+    }
+
+    const wt = e.mesh.userData.walkTime;
+    const legAmp = isHeavy ? 22 : isSniper ? 10 : 24;
+    const legFreq = isHeavy ? 6 : isSniper ? 9 : 8;
+
+    // Legs: thighs swing opposite, shins bend at knees
+    const thighSwing = Math.sin(wt * legFreq) * legAmp;
+    p.legL.thigh.rotation.x = -thighSwing * (Math.PI / 180);
+    p.legR.thigh.rotation.x = thighSwing * (Math.PI / 180);
+    p.legL.shin.rotation.x = Math.sin(wt * legFreq + Math.PI) * (legAmp * 0.9) * (Math.PI / 180);
+    p.legR.shin.rotation.x = -Math.sin(wt * legFreq + Math.PI) * (legAmp * 0.9) * (Math.PI / 180);
+
+    // Hip sway + small dip
+    p.hips.rotation.z = Math.sin(wt * legFreq * 0.5) * 5 * (Math.PI / 180);
+    p.hips.rotation.x = Math.cos(wt * legFreq) * 2 * (Math.PI / 180);
+
+    // Torso counter-rotates opposite hips, slight bob
+    p.torso.rotation.y = -Math.sin(wt * legFreq * 0.5) * 6 * (Math.PI / 180);
+    p.torso.rotation.x = Math.sin(wt * legFreq) * 2.5 * (Math.PI / 180);
+
+    // Arms swing opposite to legs
+    const armSwing = Math.sin(wt * legFreq + Math.PI) * (legAmp * 0.7);
+    p.armL.upperArm.rotation.x = -armSwing * (Math.PI / 180);
+    p.armR.upperArm.rotation.x = armSwing * (Math.PI / 180);
+
+    // Body bob on step cycle
+    e.mesh.position.y = 1.0 + Math.abs(Math.sin(wt * legFreq * 2)) * 0.035;
+    p.head.position.y = 1.28 + Math.abs(Math.sin(wt * legFreq * 2)) * 0.02;
+}
+
+// Death animation: impact flinch -> fall over -> fade out
+function updateDeath(e, dt) {
+    e.deathTime += dt;
+    const t = e.deathTime;
+    const m = e.mesh;
+    const p = m.userData.parts;
+    const dir = e.fallDir || 1;
+
+    if (t < 0.3) {
+        // impact flinch / snap
+        if (e.deathZone === 'head') {
+            m.rotation.x = Math.sin(t * 60) * 0.6 * dir; // headshot snap back
+        } else {
+            m.rotation.z = Math.sin(t * 60) * 0.35 * dir; // body shot stagger
+        }
+    } else if (t < 1.5) {
+        // fall over onto ground
+        const f = (t - 0.3) / 1.2;
+        const ease = f * f * (3 - 2 * f);
+        m.rotation.x = ease * (dir * (Math.PI / 2 + 0.4));
+        m.rotation.z = ease * ((Math.random() - 0.5) * 0.6);
+        m.position.y = 1.0 - ease * 0.95;
+        // limbs go limp with random flail
+        p.legL.thigh.rotation.x = ease * e.limpVel.lthigh;
+        p.legR.thigh.rotation.x = ease * e.limpVel.rthigh;
+        p.armL.upperArm.rotation.x = ease * e.limpVel.larm;
+        p.armR.upperArm.rotation.x = ease * e.limpVel.rarm;
+    } else if (t < 2.5) {
+        // fade out
+        const fade = (t - 1.5) / 1.0;
+        m.traverse(o => {
+            if (o.isMesh) o.material.opacity = Math.max(0, 1 - fade);
+        });
+    } else {
+        if (m.parent) scene.remove(m);
+        e.mesh = null;
+        e.alive = false;
+    }
+}
+
 function updateEnemies(dt) {
     const now = Date.now();
     for (const e of enemies) {
-        if (!e.alive) continue;
+        if (e.mesh === null) continue;
+        if (!e.alive && !e.dying) continue;
+        if (e.dying) {
+            updateDeath(e, dt);
+            continue;
+        }
         const hb = e.mesh.userData.hpBar;
         if (hb) hb.quaternion.copy(camera.quaternion);
         if (e.roof) {
@@ -1684,6 +1943,7 @@ function updateEnemies(dt) {
             if (head) {
                 head.lookAt(e.mesh.position.x + dirToPlayer.x, e.mesh.position.y + 1.0 + dirToPlayer.y, e.mesh.position.z + dirToPlayer.z);
             }
+            animateEnemy(e, dt, false); // rooftop sniper: idle breathing
             if (dist < 60 && now - e.lastFire > e.fireRate) {
                 const gunPos = new THREE.Vector3().copy(e.mesh.position);
                 gunPos.y += 0.8;
@@ -1700,6 +1960,7 @@ function updateEnemies(dt) {
         const toPlayer = new THREE.Vector3().subVectors(player.pos, e.mesh.position);
         const dist = toPlayer.length();
         const dirToPlayer = toPlayer.normalize();
+        let moving = false;
         if (dist < 40) {
             e.state = 'combat';
             e.alertTimer = 3;
@@ -1709,6 +1970,7 @@ function updateEnemies(dt) {
                 head.lookAt(e.mesh.position.x + lookDir.x, e.mesh.position.y + 1.0 + lookDir.y, e.mesh.position.z + lookDir.z);
             }
             if (dist > 8) {
+                moving = true;
                 const newX = e.mesh.position.x + dirToPlayer.x * e.speed * dt;
                 const newZ = e.mesh.position.z + dirToPlayer.z * e.speed * dt;
                 const testPos = { x: newX, z: newZ };
@@ -1716,6 +1978,7 @@ function updateEnemies(dt) {
                 e.mesh.position.x = testPos.x;
                 e.mesh.position.z = testPos.z;
             } else if (dist < 5) {
+                moving = true;
                 const newX = e.mesh.position.x - dirToPlayer.x * e.speed * 0.5 * dt;
                 const newZ = e.mesh.position.z - dirToPlayer.z * e.speed * 0.5 * dt;
                 const testPos = { x: newX, z: newZ };
@@ -1724,6 +1987,10 @@ function updateEnemies(dt) {
                 e.mesh.position.z = testPos.z;
             }
             const strafeVec = new THREE.Vector3(-dirToPlayer.z, 0, dirToPlayer.x).multiplyScalar(e.strafeDir);
+            const strafeMul = 0.35 + (e.dodge || 0.3) * 0.6;
+            const strafeX = e.mesh.position.x + strafeVec.x * e.speed * strafeMul * dt;
+            const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * strafeMul * dt;
+            if (Math.abs(strafeX - e.mesh.position.x) > 0.001 || Math.abs(strafeZ - e.mesh.position.z) > 0.001) moving = true;
             const strafeMul = 0.35 + (e.dodge || 0.3) * 0.6;
             const strafeX = e.mesh.position.x + strafeVec.x * e.speed * strafeMul * dt;
             const strafeZ = e.mesh.position.z + strafeVec.z * e.speed * strafeMul * dt;
@@ -1756,6 +2023,7 @@ function updateEnemies(dt) {
                         (Math.random() - 0.5) * 100
                     );
                 } else {
+                    moving = true;
                     toTarget.normalize();
                     const newX = e.mesh.position.x + toTarget.x * e.speed * 0.3 * dt;
                     const newZ = e.mesh.position.z + toTarget.z * e.speed * 0.3 * dt;
@@ -1766,7 +2034,7 @@ function updateEnemies(dt) {
                 }
             }
         }
-        e.mesh.position.y = 1.0;
+        animateEnemy(e, dt, moving);
     }
 }
 
