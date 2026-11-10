@@ -231,6 +231,7 @@ let sprinting = false, crouching = false;
 let yaw = 0, pitch = 0;
 let mouseDown = false;
 let levelBuildings = [];
+let levelRootGroups = []; // top-level landmark groups, tracked separately from their raycast meshes
 let buildingBoxes = [];
 let settings = { sensitivity: 1.0, fov: 75, volume: 80, invertY: false, crosshair: true, minimap: true, difficulty: 'normal' };
 const DEFAULT_SETTINGS = { sensitivity: 1.0, fov: 75, volume: 80, invertY: false, crosshair: true, minimap: true, difficulty: 'normal' };
@@ -690,17 +691,41 @@ function initThree() {
 }
 
 function clearLevel() {
-    levelBuildings.forEach(b => scene.remove(b));
-    enemies.forEach(e => { if (e.mesh) scene.remove(e.mesh); });
-    pickups.forEach(p => { if (p.mesh) scene.remove(p.mesh); });
-    projectiles.forEach(p => { if (p.mesh) scene.remove(p.mesh); });
-    liveThrowables.forEach(t => scene.remove(t.mesh));
-    // Return pooled objects to pools and hide them
+    const disposableRoots = [
+        ...levelBuildings,
+        ...levelRootGroups,
+        ...enemies.map(e => e.mesh).filter(Boolean),
+        ...pickups.map(p => p.mesh).filter(Boolean),
+        ...projectiles.map(p => p.mesh).filter(Boolean),
+        ...liveThrowables.map(t => t.mesh).filter(Boolean)
+    ];
+    const disposedGeometries = new Set();
+    const disposedMaterials = new Set();
+    const disposeTree = root => {
+        if (!root) return;
+        root.traverse(object => {
+            if (object.geometry && !disposedGeometries.has(object.geometry)) {
+                disposedGeometries.add(object.geometry);
+                object.geometry.dispose();
+            }
+            const mats = Array.isArray(object.material) ? object.material : (object.material ? [object.material] : []);
+            mats.forEach(material => {
+                if (material && !disposedMaterials.has(material)) {
+                    disposedMaterials.add(material);
+                    material.dispose();
+                }
+            });
+        });
+        if (root.parent) root.parent.remove(root);
+    };
+    disposableRoots.forEach(disposeTree);
+
+    // Return pooled effects to their pools and hide them; they are reused across levels.
     activeTracers.forEach(p => { p.item.mesh.visible = false; p.item.active = false; tracerPool.push(p.item); });
     activeImpacts.forEach(p => { p.item.mesh.visible = false; p.item.active = false; impactPool.push(p.item); });
     activeBlood.forEach(p => { p.item.mesh.visible = false; p.item.active = false; bloodPool.push(p.item); });
     activeTracers = []; activeImpacts = []; activeBlood = [];
-    levelBuildings = []; enemies = []; pickups = []; projectiles = [];
+    levelBuildings = []; levelRootGroups = []; enemies = []; pickups = []; projectiles = [];
     liveThrowables = []; fireZones = [];
 }
 
@@ -765,6 +790,7 @@ function lmArch(x, z, s, color, ry) {
         g.add(t);
     }
     scene.add(g);
+    levelRootGroups.push(g);
     g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
     buildingBoxes.push({ minX: x - 0.55 * s, maxX: x + 0.55 * s, minZ: z - 0.55 * s, maxZ: z + 0.55 * s, h: 1.0 * s, cx: x, cz: z });
 }
@@ -814,6 +840,7 @@ function lmBridge(cx, cz, len, alongX) {
         g.add(pier);
     }
     scene.add(g);
+    levelRootGroups.push(g);
     g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
 }
 
@@ -897,6 +924,7 @@ function lmChurch(x, z, ry) {
         g.add(win);
     }
     scene.add(g);
+    levelRootGroups.push(g);
     g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
     buildingBoxes.push({ minX: x - 6, maxX: x + 6, minZ: z - 8, maxZ: z + 8, h: 9, cx: x, cz: z });
 }
@@ -925,6 +953,7 @@ function lmFacade(x, z, w, h, ry) {
         g.add(mer);
     }
     scene.add(g);
+    levelRootGroups.push(g);
     g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
     buildingBoxes.push({ minX: x - w / 2, maxX: x + w / 2, minZ: z - 1.5, maxZ: z + 1.5, h, cx: x, cz: z });
 }
@@ -985,6 +1014,7 @@ function lmImambara(x, z, ry) {
         g.add(cap);
     }
     scene.add(g);
+    levelRootGroups.push(g);
     g.traverse(o => { if (o.isMesh) levelBuildings.push(o); });
     buildingBoxes.push({ minX: x - 11, maxX: x + 11, minZ: z - 5, maxZ: z + 5, h: 8, cx: x, cz: z });
 }
