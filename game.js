@@ -1864,6 +1864,7 @@ function damageEnemy(e, dmg, point, zone) {
                 document.getElementById('winBest').textContent = 'BEST: ' + highScore;
                 document.getElementById('winRecord').style.display = isNew ? '' : 'none';
                 dimScene(true);
+                stopGameLoop();
                 document.exitPointerLock();
             }
         }
@@ -3156,6 +3157,7 @@ function winLevel() {
         document.getElementById('winBest').textContent = 'BEST: ' + highScore;
         document.getElementById('winRecord').style.display = isNew ? '' : 'none';
         dimScene(true);
+        stopGameLoop();
         document.exitPointerLock();
     } else {
         level++;
