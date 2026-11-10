@@ -3286,6 +3286,20 @@ document.getElementById('quitBtn').addEventListener('click', quitToMenu);
 window.restartGame = restartGame;
 window.quitToMenu = quitToMenu;
 
+// Global error handler — display initialization/runtime errors on screen
+window.addEventListener('error', (e) => {
+    console.error('Uncaught error:', e.error || e.message);
+    const blocker = document.getElementById('blocker');
+    if (blocker && !blocker.classList.contains('hidden')) {
+        blocker.innerHTML = '<div style="color:#fff;padding:40px;text-align:center;"><h2>Game Error</h2><p style="color:#FF5252;">' + (e.error ? e.error.message : e.message) + '</p><p style="margin-top:16px;font-size:13px;color:#9ab;">Check browser console (F12) for details.</p><button style="margin-top:20px;padding:12px 24px;background:#00C896;color:#fff;border:none;border-radius:6px;cursor:pointer;" onclick="location.reload()">RETRY</button></div>';
+        blocker.classList.remove('hidden');
+    }
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+    console.error('Unhandled promise rejection:', e.reason);
+});
+
 function startGame(mode = 'campaign') {
     gameMode = mode;
     // WebGL compatibility check
@@ -3313,10 +3327,17 @@ function startGame(mode = 'campaign') {
         shotsFired = 0;
         shotsHit = 0;
     }
-    initAudio();
-    initThree();
-    setupInput();
-    generateLevel(level);
+    try {
+        initAudio();
+        initThree();
+        setupInput();
+        generateLevel(level);
+    } catch (err) {
+        console.error('Game initialization failed:', err);
+        document.getElementById('blocker').innerHTML = '<div style="color:#fff;padding:40px;text-align:center;"><h2>Initialization Error</h2><p>Failed to start the game. Check the browser console for details.</p><p style="margin-top:20px;color:#FF5252;">' + err.message + '</p><button style="margin-top:20px;padding:12px 24px;background:#00C896;color:#fff;border:none;border-radius:6px;cursor:pointer;" onclick="location.reload()">RETRY</button></div>';
+        document.getElementById('blocker').classList.remove('hidden');
+        return;
+    }
     gameState = 'playing';
     // Signal loading screen that engine is ready
     if (typeof window.__bingShootLoadingReady === 'function') {
