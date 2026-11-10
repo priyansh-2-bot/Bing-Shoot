@@ -2154,59 +2154,6 @@ function spawnDeathEffect(pos) {
     });
 }
 
-function spawnImpact(pos, normal) {
-    for (let i = 0; i < 2; i++) {
-        const geo = new THREE.SphereGeometry(0.03, 4, 4);
-        const mat = new THREE.MeshBasicMaterial({ color: 0xCCCCCC, transparent: true, opacity: 0.85 });
-        const spark = new THREE.Mesh(geo, mat);
-        spark.position.copy(pos);
-        scene.add(spark);
-        const vel = new THREE.Vector3(
-            (Math.random() - 0.5) * 1.4 + normal.x,
-            Math.random() * 1.4 + normal.y,
-            (Math.random() - 0.5) * 1.4 + normal.z
-        );
-        const start = Date.now();
-        projectiles.push({
-            mesh: spark, type: 'spark', born: start,
-            update: () => {
-                const dt = 0.016;
-                spark.position.add(vel.clone().multiplyScalar(dt));
-                vel.y -= 9.8 * dt;
-                mat.opacity = Math.max(0, 0.85 * (1 - (Date.now() - start) / 220));
-                if (Date.now() - start > 220) scene.remove(spark);
-            }
-        });
-    }
-}
-
-function spawnBlood(pos, count) {
-    for (let i = 0; i < count; i++) {
-        const geo = new THREE.SphereGeometry(0.04, 4, 4);
-        const mat = new THREE.MeshBasicMaterial({ color: 0x8B0000, transparent: true, opacity: 0.9 });
-        const blood = new THREE.Mesh(geo, mat);
-        blood.position.copy(pos);
-        scene.add(blood);
-        const vel = new THREE.Vector3(
-            (Math.random() - 0.5) * 2,
-            (Math.random() - 0.5) * 2 + 1,
-            (Math.random() - 0.5) * 2
-        );
-        const start = Date.now();
-        projectiles.push({
-            mesh: blood, type: 'blood', born: start,
-            update: () => {
-                const dt = 0.016;
-                blood.position.add(vel.clone().multiplyScalar(dt));
-                vel.y -= 12 * dt;
-                mat.opacity = Math.max(0, 0.9 * (1 - (Date.now() - start) / 600));
-                if (Date.now() - start > 600) scene.remove(blood);
-            }
-        });
-    }
-}
-
-// Walk / idle animation for the enemy body parts
 function animateEnemy(e, dt, moving) {
     const p = e.mesh.userData.parts;
     if (!p) return;
@@ -2631,8 +2578,8 @@ function updatePlayer(dt) {
     camera.position.copy(player.pos);
     camera.rotation.order = 'YXZ';
     camera.rotation.y = yaw;
-    camera.rotation.x = pitch + recoilPitch + shakeY;
-    camera.rotation.y = yaw + shakeX;
+    camera.rotation.x = pitch + recoilPitch;
+    camera.rotation.y = yaw;
     // Muzzle flash fade
     if (muzzleFlash && Date.now() > muzzleFlashUntil) {
         muzzleFlash.material.opacity = Math.max(0, muzzleFlash.material.opacity - dt * 12);
@@ -2659,10 +2606,10 @@ function updatePlayer(dt) {
     recoilKick = Math.max(0, recoilKick - dt * 15);
     gunKick = Math.max(0, gunKick - dt * 10);
     screenShake = Math.max(0, screenShake - dt * 2);
-    const kickBack = recoilKick * 0.06;
-    const kickUp = recoilKick * 0.04;
     const shakeX = screenShake > 0 ? (Math.random() - 0.5) * screenShake * 0.05 : 0;
     const shakeY = screenShake > 0 ? (Math.random() - 0.5) * screenShake * 0.05 : 0;
+    const kickBack = recoilKick * 0.06;
+    const kickUp = recoilKick * 0.04;
     const bobAmp = aiming ? 0.25 : 1.0;
     const bobY = (moving ? Math.sin(bobTime) * 0.012 : Math.sin(Date.now() * 0.002) * 0.004) * bobAmp;
     const bobX = (moving ? Math.cos(bobTime * 0.5) * 0.008 : 0) * bobAmp;
@@ -2855,52 +2802,64 @@ function showDamageOverlay() {
 
 function updateHUD() {
     const w = weapons[currentWeaponIdx];
-    document.getElementById('hudWeapon').textContent = w.name;
-    document.getElementById('hudAmmo').textContent = w.ammo;
-    document.querySelector('.hud-ammo small').textContent = '/ ' + w.mag;
+    const elWeapon = document.getElementById('hudWeapon');
+    const elAmmo = document.getElementById('hudAmmo');
+    const elLevel = document.getElementById('hudLevel');
+    const elScore = document.getElementById('hudScore');
+    const elKills = document.getElementById('hudKills');
+    const elMedkit = document.getElementById('medkitIndicator');
+    const elHealthFill = document.getElementById('healthFill');
+    const elHealthText = document.getElementById('healthText');
+    const elSlots = document.getElementById('weaponSlots');
+    const elBossBar = document.getElementById('bossHealthBar');
+    const elBossFill = document.getElementById('bossHealthFill');
+    if (elWeapon) elWeapon.textContent = w.name;
+    if (elAmmo) elAmmo.textContent = w.ammo;
+    const ammoSmall = document.querySelector('.hud-ammo small');
+    if (ammoSmall) ammoSmall.textContent = '/ ' + w.mag;
     const cityNow = CITIES[(level - 1) % CITIES.length];
-    document.getElementById('hudLevel').textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
-    document.getElementById('hudScore').textContent = 'SCORE: ' + score;
-    document.getElementById('hudKills').textContent = 'KILLS: ' + kills;
+    if (elLevel) elLevel.textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
+    if (elScore) elScore.textContent = 'SCORE: ' + score;
+    if (elKills) elKills.textContent = 'KILLS: ' + kills;
     const acc = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
-    document.getElementById('hudKills').textContent = 'KILLS: ' + kills + '  •  HS: ' + headshots + '  •  ACC: ' + acc + '%';
-    document.getElementById('medkitIndicator').textContent = 'MEDKITS: ' + player.medkits;
+    if (elKills) elKills.textContent = 'KILLS: ' + kills + '  •  HS: ' + headshots + '  •  ACC: ' + acc + '%';
+    if (elMedkit) elMedkit.textContent = 'MEDKITS: ' + player.medkits;
     const thEl = document.getElementById('throwableIndicator');
     if (thEl) thEl.textContent = 'G:GRENADE×' + throwables.grenade + '  F:FIRE×' + throwables.molotov;
     if (gameMode === 'survival') {
-        document.getElementById('hudLevel').textContent = 'SURVIVAL — WAVE ' + (survivalWave + 1);
+        if (elLevel) elLevel.textContent = 'SURVIVAL — WAVE ' + (survivalWave + 1);
         const survTime = Math.floor((Date.now() - survivalTime) / 1000);
         const m = Math.floor(survTime / 60).toString().padStart(2, '0');
         const s = (survTime % 60).toString().padStart(2, '0');
-        document.getElementById('hudScore').textContent = 'WAVE ' + (survivalWave + 1) + '  •  TIME: ' + m + ':' + s + '  •  KILLS: ' + survivalKills;
+        if (elScore) elScore.textContent = 'WAVE ' + (survivalWave + 1) + '  •  TIME: ' + m + ':' + s + '  •  KILLS: ' + survivalKills;
     } else {
         const cityNow = CITIES[(level - 1) % CITIES.length];
-        document.getElementById('hudLevel').textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
-        document.getElementById('hudScore').textContent = 'SCORE: ' + score;
+        if (elLevel) elLevel.textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
+        if (elScore) elScore.textContent = 'SCORE: ' + score;
     }
-    document.getElementById('hudKills').textContent = 'KILLS: ' + kills + '  •  HS: ' + headshots + '  •  ACC: ' + acc + '%';
+    if (elKills) elKills.textContent = 'KILLS: ' + kills + '  •  HS: ' + headshots + '  •  ACC: ' + acc + '%';
     const hpPct = Math.max(0, player.health);
-    document.getElementById('healthFill').style.width = hpPct + '%';
-    document.getElementById('healthText').textContent = Math.round(hpPct) + ' HP';
-    const slotsEl = document.getElementById('weaponSlots');
-    slotsEl.innerHTML = '';
-    weapons.forEach((wp, i) => {
-        const slot = document.createElement('div');
-        const locked = !isUnlocked(i);
-        slot.className = 'weapon-slot' + (i === currentWeaponIdx ? ' active' : '') + (locked ? ' locked' : '');
-        slot.textContent = locked ? '🔒' : wp.slot;
-        slot.title = locked ? (wp.name + ' — unlocks at level ' + wp.unlock) : wp.name;
-        slotsEl.appendChild(slot);
-    });
+    if (elHealthFill) elHealthFill.style.width = hpPct + '%';
+    if (elHealthText) elHealthText.textContent = Math.round(hpPct) + ' HP';
+    if (elSlots) {
+        elSlots.innerHTML = '';
+        weapons.forEach((wp, i) => {
+            const slot = document.createElement('div');
+            const locked = !isUnlocked(i);
+            slot.className = 'weapon-slot' + (i === currentWeaponIdx ? ' active' : '') + (locked ? ' locked' : '');
+            slot.textContent = locked ? '🔒' : wp.slot;
+            slot.title = locked ? (wp.name + ' — unlocks at level ' + wp.unlock) : wp.name;
+            elSlots.appendChild(slot);
+        });
+    }
     // Boss health bar
     const boss = enemies.find(e => e.isBoss && e.alive);
-    const bhEl = document.getElementById('bossHealthBar');
-    if (boss && bhEl) {
-        bhEl.style.display = 'block';
+    if (boss && elBossBar) {
+        elBossBar.style.display = 'block';
         const pct = Math.max(0, boss.hp / boss.maxHp);
-        document.getElementById('bossHealthFill').style.width = Math.round(pct * 100) + '%';
-    } else if (bhEl) {
-        bhEl.style.display = 'none';
+        if (elBossFill) elBossFill.style.width = Math.round(pct * 100) + '%';
+    } else if (elBossBar) {
+        elBossBar.style.display = 'none';
     }
 }
 
