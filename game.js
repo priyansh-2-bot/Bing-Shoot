@@ -39,7 +39,8 @@ let weaponUpgrades = {};
 
 
 function isUnlocked(idx) {
-    return WEAPONS[idx].unlock <= level;
+    const progression = gameMode === 'survival' ? survivalWave + 1 : level;
+    return WEAPONS[idx].unlock <= progression;
 }
 
 function showBanner(text, ms) {
@@ -191,6 +192,9 @@ function getLevelFireRateScale(lvl) {
 }
 
 let scene, camera, renderer, clock;
+let threeInitialized = false;
+let animationFrameId = null;
+let gameLoopRunning = false;
 let dustParticles = null;
 // Object pools to reduce GC pressure during intense combat
 let tracerPool = [];
@@ -214,7 +218,8 @@ let shotsHit = 0;
 let gameMode = 'campaign'; // 'campaign' | 'survival'
 let survivalWave = 0;
 let survivalKills = 0;
-let survivalTime = 0;
+let survivalTime = 0; // elapsed seconds in the current wave
+let survivalHudSecond = -1;
 let waveActive = false;
 let waveEnemiesRemaining = 0;
 let gameState = 'menu';
@@ -299,10 +304,16 @@ let noiseBuf = null;
 let masterGain = null;
 
 function initAudio() {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return; // Audio is optional; gameplay must still start.
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        return;
+    }
+    audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     masterGain = audioCtx.createGain();
-    masterGain.gain.value = (settings.volume || 80) / 100;
+    masterGain.gain.value = (settings.volume ?? 80) / 100;
     masterGain.connect(audioCtx.destination);
     // shared 2s white-noise buffer — every gunshot is sculpted from this
     const len = audioCtx.sampleRate * 2;
@@ -312,7 +323,7 @@ function initAudio() {
 }
 
 function masterVol() {
-    if (masterGain && audioCtx) masterGain.gain.value = (settings.volume || 80) / 100;
+    if (masterGain && audioCtx) masterGain.gain.value = (settings.volume ?? 80) / 100;
 }
 
 // filtered noise burst: the "crack" / "body" of a real report
@@ -675,6 +686,7 @@ function initThree() {
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+    threeInitialized = true;
 }
 
 function clearLevel() {
@@ -1248,12 +1260,19 @@ function buildEnemyMesh(cfg) {
 }
 
 function updateEnemyHpBar(e) {
-    const fill = e.mesh && e.mesh.userData.hpFill;
-    if (!fill) return;
     const pct = Math.max(0, Math.min(1, e.hp / e.maxHp));
-    fill.scale.x = Math.max(0.001, pct);
-    fill.position.x = -(1 - pct) * 0.43;
-    fill.material.color.setHSL(pct * 0.33, 0.9, 0.5);
+    const fill = e.mesh && e.mesh.userData.hpFill;
+    if (fill) {
+        fill.scale.x = Math.max(0.001, pct);
+        fill.position.x = -(1 - pct) * 0.43;
+        fill.material.color.setHSL(pct * 0.33, 0.9, 0.5);
+    }
+    if (e.isBoss) {
+        const bossBar = document.getElementById('bossHealthBar');
+        const bossFill = document.getElementById('bossHealthFill');
+        if (bossBar) bossBar.style.display = e.hp > 0 ? 'block' : 'none';
+        if (bossFill) bossFill.style.width = Math.round(pct * 100) + '%';
+    }
 }
 
 function generateLevel(lvl) {
@@ -1423,15 +1442,26 @@ function spawnSurvivalWave(waveNum) {
     const diffSpeed = settings.difficulty === 'easy' ? 0.85 : settings.difficulty === 'hard' ? 1.15 : 1.0;
     const diffDmg = settings.difficulty === 'easy' ? 0.7 : settings.difficulty === 'hard' ? 1.4 : 1.0;
     const spawns = [];
-    const attempts = 0;
+    let attempts = 0;
     while (spawns.length < enemyCount && attempts < 200) {
+        attempts++;
         const angle = Math.random() * Math.PI * 2;
         const dist = 20 + Math.random() * (arena - 20);
         const ex = Math.cos(angle) * dist;
         const ez = Math.sin(angle) * dist;
         if (Math.hypot(ex - player.pos.x, ez - player.pos.z) < 25) continue;
         spawns.push({ x: ex, z: ez });
-        attempts++;
+    }
+    // Never leave the wave waiting for enemies that failed to spawn.
+    if (spawns.length === 0) {
+        const fallbackRadius = 28;
+        for (let i = 0; i < enemyCount; i++) {
+            const angle = (Math.PI * 2 * i) / enemyCount;
+            spawns.push({
+                x: player.pos.x + Math.cos(angle) * fallbackRadius,
+                z: player.pos.z + Math.sin(angle) * fallbackRadius
+            });
+        }
     }
     for (const s of spawns) {
         const type = types[Math.floor(Math.random() * types.length)];
@@ -1449,10 +1479,12 @@ function spawnSurvivalWave(waveNum) {
             walkTime: 0, dying: false, hitReact: 0, hitDir: null
         });
     }
-    waveEnemiesRemaining = enemyCount;
-    survivalTime = Date.now();
-    waveActive = true;
-    showBanner('WAVE ' + waveNum + ' — ' + enemyCount + ' HOSTILES', 2500);
+    waveEnemiesRemaining = spawns.length;
+    survivalTime = 0;
+    survivalHudSecond = -1;
+    waveActive = waveEnemiesRemaining > 0;
+    showBanner('WAVE ' + waveNum + ' — ' + waveEnemiesRemaining + ' HOSTILES', 2500);
+    updateHUD();
 }
 
 function spawnBoss(bossKey, arena) {
@@ -1592,9 +1624,11 @@ function reloadWeapon() {
     w.lastReloadStart = Date.now();
     playSound('reload');
     const effectiveReload = getWeaponStat(w.id, 'reload');
-    setTimeout(() => {
+    if (w.reloadTimeout) clearTimeout(w.reloadTimeout);
+    w.reloadTimeout = setTimeout(() => {
         w.ammo = w.mag;
         w.reloading = false;
+        w.reloadTimeout = null;
         updateHUD();
     }, effectiveReload);
 }
@@ -1744,7 +1778,6 @@ function damageEnemy(e, dmg, point, zone) {
     if (point) spawnImpact(point, new THREE.Vector3(0, 1, 0));
     if (point) spawnBlood(point, zone === 'head' ? 8 : 4);
     showDamageNumber(null, dmg, zone === 'head');
-    shotsHit++;
     if (zone === 'head') headshots++;
 
     // Hit reaction: enemies flinch when hit but not killed
@@ -1801,7 +1834,7 @@ function damageEnemy(e, dmg, point, zone) {
     }
 }
 
-function explode(pos, radius, maxDmg) {
+function explode(pos, radius, maxDmg, countsTowardAccuracy = false) {
     playSound('explosion');
     screenShake = Math.min(1.0, screenShake + 0.4);
     // flash sphere
@@ -1848,14 +1881,26 @@ function explode(pos, radius, maxDmg) {
             }
         });
     }
+    let hitEnemy = false;
     for (const e of enemies) {
-        if (!e.alive) continue;
+        if (!e.alive || e.dying || !e.mesh) continue;
         const d = e.mesh.position.distanceTo(pos);
         if (d < radius) {
+            hitEnemy = true;
             const fall = 1 - (d / radius) * 0.6;
             damageEnemy(e, maxDmg * fall, null, 'torso');
         }
     }
+    // Explosions can hurt the player too; brief spawn protection applies to all damage.
+    const playerDistance = player.pos.distanceTo(pos);
+    if (playerDistance < radius && Date.now() >= spawnProtUntil) {
+        const fall = 1 - (playerDistance / radius) * 0.6;
+        player.health = Math.max(0, player.health - maxDmg * fall);
+        playSound('hurt');
+        showDamageOverlay();
+        if (player.health <= 0) gameOver();
+    }
+    if (countsTowardAccuracy && hitEnemy) shotsHit++;
     updateHUD();
 }
 
@@ -1908,7 +1953,7 @@ function fireRocket() {
             for (const e of enemies) {
                 if (!e.alive) continue;
                 if (mesh.position.distanceTo(e.mesh.position) < 1.2) {
-                    explode(mesh.position.clone(), 7, getWeaponStat(w.id, 'damage'));
+                    explode(mesh.position.clone(), 7, getWeaponStat(w.id, 'damage'), true);
                     if (mesh.parent) scene.remove(mesh);
                     projectiles.splice(projectiles.findIndex(p => p.mesh === mesh), 1);
                     return;
@@ -1917,7 +1962,7 @@ function fireRocket() {
             const ray = new THREE.Raycaster(prev, vel.clone().normalize(), 0, vel.length() * dt + 0.3);
             const hits = ray.intersectObjects(levelBuildings);
             if (hits.length > 0 || Date.now() - born > 4000) {
-                explode(hits.length ? hits[0].point.clone() : mesh.position.clone(), 7, getWeaponStat(w.id, 'damage'));
+                explode(hits.length ? hits[0].point.clone() : mesh.position.clone(), 7, getWeaponStat(w.id, 'damage'), true);
                 if (mesh.parent) scene.remove(mesh);
                 projectiles.splice(projectiles.findIndex(p => p.mesh === mesh), 1);
             }
@@ -1978,7 +2023,8 @@ function throwMolotov() {
 
 function spawnFireZone(pos) {
     playSound('fire');
-    fireZones.push({ pos: pos.clone(), until: Date.now() + 7000 });
+    const zone = { pos: pos.clone(), until: Date.now() + 7000 };
+    fireZones.push(zone);
     for (let i = 0; i < 10; i++) {
         const fgeo = new THREE.ConeGeometry(0.2 + Math.random() * 0.25, 0.8 + Math.random() * 0.8, 6);
         const fmat = new THREE.MeshBasicMaterial({
@@ -1989,24 +2035,28 @@ function spawnFireZone(pos) {
         f.position.set(pos.x + (Math.random() - 0.5) * 3, 0.5, pos.z + (Math.random() - 0.5) * 3);
         scene.add(f);
         const born = Date.now();
-        projectiles.push({
+        let particle;
+        particle = {
             mesh: f, type: 'flame', born,
             update: () => {
-                const alive = Date.now() < fireZones[fireZones.length - 1].until;
+                if (Date.now() >= zone.until) {
+                    if (f.parent) scene.remove(f);
+                    const index = projectiles.indexOf(particle);
+                    if (index >= 0) projectiles.splice(index, 1);
+                    return;
+                }
                 const t = (Date.now() - born) / 400;
                 if (t > 1) {
-                    // respawn flicker while zone alive
-                    if (Date.now() < fireZones.find(z => z.pos.distanceTo(pos) < 0.5)?.until || alive) {
-                        f.position.set(pos.x + (Math.random() - 0.5) * 3.4, 0.4 + Math.random() * 0.4, pos.z + (Math.random() - 0.5) * 3.4);
-                        fmat.opacity = 0.9;
-                        f.scale.setScalar(0.7 + Math.random() * 0.7);
-                    } else if (f.parent) scene.remove(f);
+                    f.position.set(pos.x + (Math.random() - 0.5) * 3.4, 0.4 + Math.random() * 0.4, pos.z + (Math.random() - 0.5) * 3.4);
+                    fmat.opacity = 0.9;
+                    f.scale.setScalar(0.7 + Math.random() * 0.7);
                     return;
                 }
                 fmat.opacity = 0.9 * (1 - t * 0.3);
                 f.scale.y = 1 + Math.sin(Date.now() * 0.02 + f.position.x) * 0.2;
             }
-        });
+        };
+        projectiles.push(particle);
     }
 }
 
@@ -2092,6 +2142,7 @@ function shoot() {
     gunKick = 1.0;
     const spreadMul = aiming ? 0.35 : 1.0;
     const pellets = w.pellets || 1;
+    let hitAnyEnemy = false;
     for (let p = 0; p < pellets; p++) {
         const dir = new THREE.Vector3(0, 0, -1);
         dir.applyQuaternion(camera.quaternion);
@@ -2100,38 +2151,41 @@ function shoot() {
         dir.z += (Math.random() - 0.5) * w.spread * spreadMul;
         dir.normalize();
         const ray = new THREE.Raycaster(camera.position.clone(), dir, 0.1, 200);
-        let hitEnemy = false;
-        let endPoint = camera.position.clone().add(dir.clone().multiplyScalar(120));
+        const worldHits = ray.intersectObjects(levelBuildings, true);
+        const wallDistance = worldHits.length > 0 ? worldHits[0].distance : Infinity;
+        let nearestEnemyHit = null;
         for (const e of enemies) {
-            if (!e.alive) continue;
+            if (!e.alive || e.dying || !e.mesh) continue;
             const hits = ray.intersectObject(e.mesh, true);
-            if (hits.length > 0) {
-                endPoint = hits[0].point.clone();
-                // walk up the parent chain to find which body part was hit
-                let zone = 'torso';
-                let hitObj = hits[0].object;
-                while (hitObj && hitObj !== e.mesh) {
-                    if (hitObj.userData && hitObj.userData.zone) {
-                        zone = hitObj.userData.zone;
-                        break;
-                    }
-                    hitObj = hitObj.parent;
-                }
-                damageEnemy(e, 0, hits[0].point, zone);
-                hitEnemy = true;
-                break;
+            if (hits.length > 0 && hits[0].distance < wallDistance &&
+                (!nearestEnemyHit || hits[0].distance < nearestEnemyHit.hit.distance)) {
+                nearestEnemyHit = { enemy: e, hit: hits[0] };
             }
         }
-        if (!hitEnemy) {
-            const groundHits = ray.intersectObjects(levelBuildings);
-            if (groundHits.length > 0) {
-                endPoint = groundHits[0].point.clone();
-                spawnImpact(groundHits[0].point, groundHits[0].face.normal);
+        let endPoint = camera.position.clone().add(dir.clone().multiplyScalar(120));
+        if (nearestEnemyHit) {
+            const { enemy, hit } = nearestEnemyHit;
+            endPoint = hit.point.clone();
+            // Walk up the parent chain to identify the body part that was hit.
+            let zone = 'torso';
+            let hitObj = hit.object;
+            while (hitObj && hitObj !== enemy.mesh) {
+                if (hitObj.userData && hitObj.userData.zone) {
+                    zone = hitObj.userData.zone;
+                    break;
+                }
+                hitObj = hitObj.parent;
             }
+            damageEnemy(enemy, 0, hit.point, zone);
+            hitAnyEnemy = true;
+        } else if (worldHits.length > 0) {
+            endPoint = worldHits[0].point.clone();
+            if (worldHits[0].face) spawnImpact(worldHits[0].point, worldHits[0].face.normal);
         }
         const ts = w.tracer || { color: 0xfff2b0, width: 0.03, life: 80 };
         spawnTracer(muzzlePos.clone(), endPoint, ts.color, ts.life, ts.width);
     }
+    if (hitAnyEnemy) shotsHit++;
     if (w.ammo <= 0) reloadWeapon();
     updateHUD();
 }
@@ -2333,7 +2387,7 @@ function updateBoss(e, dt, now) {
                 setTimeout(() => {
                     if (e.alive) {
                         const rocketPos = player.pos.clone();
-                        rocketPos.y += 10;
+                        rocketPos.y = 0.5;
                         explode(rocketPos, 5, e.damage * 0.7);
                     }
                 }, 600);
@@ -2544,7 +2598,7 @@ function updatePlayer(dt) {
     const adsSlow = aiming ? 0.55 : 1.0;
     const speed = (crouching ? CROUCH_SPEED : (sprinting && !aiming ? SPRINT_SPEED : MOVE_SPEED)) * adsSlow;
     const eyeHeight = crouching ? CROUCH_HEIGHT : PLAYER_HEIGHT;
-    player.pos.y = eyeHeight;
+    if (player.onGround) player.pos.y = eyeHeight;
     const forward = new THREE.Vector3(0, 0, -1);
     forward.applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
     const right = new THREE.Vector3(1, 0, 0);
@@ -2560,8 +2614,8 @@ function updatePlayer(dt) {
     }
     player.vel.y += GRAVITY * dt;
     player.pos.y += player.vel.y * dt;
-    if (player.pos.y <= PLAYER_HEIGHT) {
-        player.pos.y = PLAYER_HEIGHT;
+    if (player.pos.y <= eyeHeight) {
+        player.pos.y = eyeHeight;
         player.vel.y = 0;
         player.onGround = true;
     }
@@ -2675,12 +2729,15 @@ function updatePickups() {
 }
 
 function updateProjectiles() {
-    // Regular projectiles (rockets, bullets, explosions, smoke, flames)
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-        projectiles[i].update();
-        if (Date.now() - projectiles[i].born > 3000) {
-            if (projectiles[i].mesh.parent) scene.remove(projectiles[i].mesh);
-            projectiles.splice(i, 1);
+    // Iterate a snapshot: updates may append trails/smoke or remove the projectile itself.
+    for (const projectile of projectiles.slice()) {
+        if (!projectiles.includes(projectile)) continue;
+        projectile.update();
+        if (!projectiles.includes(projectile)) continue;
+        if (projectile.type !== 'flame' && Date.now() - projectile.born > 3000) {
+            if (projectile.mesh && projectile.mesh.parent) scene.remove(projectile.mesh);
+            const index = projectiles.indexOf(projectile);
+            if (index >= 0) projectiles.splice(index, 1);
         }
     }
     // Pooled tracers
@@ -2815,7 +2872,7 @@ function updateHUD() {
     const elBossFill = document.getElementById('bossHealthFill');
     if (elWeapon) elWeapon.textContent = w.name;
     if (elAmmo) elAmmo.textContent = w.ammo;
-    const ammoSmall = document.querySelector('.hud-ammo small');
+    const ammoSmall = document.querySelector('.hud-ammo .ammo-max');
     if (ammoSmall) ammoSmall.textContent = '/ ' + w.mag;
     const cityNow = CITIES[(level - 1) % CITIES.length];
     if (elLevel) elLevel.textContent = 'LEVEL ' + level + ' — ' + cityNow.name.toUpperCase() + (cityNow.place ? ' · ' + cityNow.place.toUpperCase() : '');
@@ -2828,7 +2885,7 @@ function updateHUD() {
     if (thEl) thEl.textContent = 'G:GRENADE×' + throwables.grenade + '  F:FIRE×' + throwables.molotov;
     if (gameMode === 'survival') {
         if (elLevel) elLevel.textContent = 'SURVIVAL — WAVE ' + (survivalWave + 1);
-        const survTime = Math.floor((Date.now() - survivalTime) / 1000);
+        const survTime = Math.floor(survivalTime);
         const m = Math.floor(survTime / 60).toString().padStart(2, '0');
         const s = (survTime % 60).toString().padStart(2, '0');
         if (elScore) elScore.textContent = 'WAVE ' + (survivalWave + 1) + '  •  TIME: ' + m + ':' + s + '  •  KILLS: ' + survivalKills;
@@ -3093,6 +3150,56 @@ function winLevel() {
     }
 }
 
+function resetRunState(mode = gameMode) {
+    gameMode = mode;
+    level = 1;
+    score = 0;
+    kills = 0;
+    headshots = 0;
+    shotsFired = 0;
+    shotsHit = 0;
+    survivalWave = 0;
+    survivalKills = 0;
+    survivalTime = 0;
+    survivalHudSecond = -1;
+    waveActive = false;
+    waveEnemiesRemaining = 0;
+
+    player.health = 100;
+    player.medkits = 3;
+    player.vel.set(0, 0, 0);
+    player.onGround = true;
+    player.crouching = false;
+    throwables = { grenade: 3, molotov: 2 };
+
+    liveThrowables.forEach(t => { if (t.mesh && t.mesh.parent) scene.remove(t.mesh); });
+    liveThrowables = [];
+    fireZones = [];
+    weapons.forEach(w => {
+        if (w.reloadTimeout) clearTimeout(w.reloadTimeout);
+        w.reloadTimeout = null;
+        w.ammo = w.mag;
+        w.reloading = false;
+        w.lastReloadStart = 0;
+        w.lastFire = 0;
+    });
+    currentWeaponIdx = 0;
+
+    aiming = false;
+    rmbDown = false;
+    mouseDown = false;
+    moveForward = moveBack = moveLeft = moveRight = false;
+    sprinting = false;
+    crouching = false;
+    recoilPitch = 0;
+    recoilKick = 0;
+    gunKick = 0;
+    screenShake = 0;
+    footstepTime = 0;
+    const scope = document.getElementById('scopeOverlay');
+    if (scope) scope.classList.remove('show');
+}
+
 function restartGame() {
     document.getElementById('gameOverScreen').classList.remove('show');
     document.getElementById('winScreen').classList.remove('show');
@@ -3100,44 +3207,25 @@ function restartGame() {
     dimScene(false);
     if (deathGroup) { scene.remove(deathGroup); deathGroup = null; }
     deathT = 0;
-    if (gameMode === 'survival') {
-        survivalWave = 0;
-        survivalKills = 0;
-        survivalTime = 0;
-        waveActive = false;
-        waveEnemiesRemaining = 0;
-    }
-    level = 1;
-    score = 0;
-    kills = 0;
-    headshots = 0;
-    shotsFired = 0;
-    shotsHit = 0;
-    player.health = 100;
-    player.medkits = 3;
-    throwables = { grenade: 3, molotov: 2 };
-    liveThrowables.forEach(t => scene.remove(t.mesh));
-    liveThrowables = [];
-    fireZones = [];
-    aiming = false;
-    rmbDown = false;
-    const sc = document.getElementById('scopeOverlay');
-    if (sc) sc.classList.remove('show');
-    weapons.forEach(w => { w.ammo = w.mag; w.reloading = false; w.lastReloadStart = 0; });
-    currentWeaponIdx = 0;
+    resetRunState(gameMode);
     generateLevel(level);
     showViewmodel(0);
     gameState = 'playing';
+    if (gameMode === 'survival') spawnSurvivalWave(1);
+    updateHUD();
+    renderer.domElement.style.display = 'block';
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('bg-character').classList.add('bg-hidden');
     document.body.requestPointerLock();
+    startGameLoop();
 }
 window.restartGame = restartGame;
 
 function pauseGame() {
     if (gameState !== 'playing') return;
     paused = true;
+    stopGameLoop();
     document.exitPointerLock();
     document.getElementById('pauseScreen').classList.add('show');
 }
@@ -3147,6 +3235,7 @@ function resumeGame() {
     document.getElementById('pauseScreen').classList.remove('show');
     document.getElementById('settingsScreen').classList.remove('show');
     document.body.requestPointerLock();
+    startGameLoop();
 }
 
 function openSettings() {
@@ -3169,6 +3258,8 @@ function quitToMenu() {
     document.getElementById('blocker').classList.remove('show');
     document.getElementById('blocker').classList.remove('hidden');
     document.getElementById('bg-character').classList.remove('bg-hidden');
+    if (renderer) renderer.domElement.style.display = 'none';
+    stopGameLoop();
     document.exitPointerLock();
 }
 
@@ -3260,8 +3351,7 @@ window.addEventListener('unhandledrejection', (e) => {
 });
 
 function startGame(mode = 'campaign') {
-    gameMode = mode;
-    // WebGL compatibility check
+    // WebGL compatibility check before creating the renderer.
     try {
         const canvas = document.createElement('canvas');
         const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
@@ -3271,42 +3361,46 @@ function startGame(mode = 'campaign') {
             return;
         }
     } catch (e) {
-        // WebGL check failed
+        // Let Three.js provide the more useful initialization error below.
     }
-    if (mode === 'survival') {
-        survivalWave = 0;
-        survivalKills = 0;
-        survivalTime = 0;
-        waveActive = false;
-        waveEnemiesRemaining = 0;
-        level = 1;
-        score = 0;
-        kills = 0;
-        headshots = 0;
-        shotsFired = 0;
-        shotsHit = 0;
-    }
+
     try {
         initAudio();
-        initThree();
+        if (!threeInitialized) initThree();
+        else if (renderer) {
+            renderer.domElement.style.display = 'block';
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
         setupInput();
+        resetRunState(mode);
         generateLevel(level);
+        showViewmodel(0);
     } catch (err) {
         console.error('Game initialization failed:', err);
+        if (renderer && !threeInitialized) {
+            renderer.dispose();
+            if (renderer.domElement && renderer.domElement.parentNode) renderer.domElement.remove();
+            renderer = null;
+            scene = null;
+            camera = null;
+        }
         document.getElementById('blocker').innerHTML = '<div style="color:#fff;padding:40px;text-align:center;"><h2>Initialization Error</h2><p>Failed to start the game. Check the browser console for details.</p><p style="margin-top:20px;color:#FF5252;">' + err.message + '</p><button style="margin-top:20px;padding:12px 24px;background:#00C896;color:#fff;border:none;border-radius:6px;cursor:pointer;" onclick="location.reload()">RETRY</button></div>';
         document.getElementById('blocker').classList.remove('hidden');
         return;
     }
+
     gameState = 'playing';
-    // Signal loading screen that engine is ready
+    if (mode === 'survival') spawnSurvivalWave(1);
+    else updateHUD();
     if (typeof window.__bingShootLoadingReady === 'function') {
         window.__bingShootLoadingReady();
     }
     document.getElementById('blocker').classList.add('hidden');
     document.getElementById('hud').classList.remove('hidden');
     document.getElementById('bg-character').classList.add('bg-hidden');
+    renderer.domElement.style.display = 'block';
     document.body.requestPointerLock();
-    gameLoop();
+    startGameLoop();
 }
 
 document.getElementById('btnCampaign').addEventListener('click', () => startGame('campaign'));
@@ -3342,8 +3436,23 @@ const _resumeAudio = () => {
 document.addEventListener('click', _resumeAudio, { once: true });
 document.addEventListener('keydown', _resumeAudio, { once: true });
 
+function startGameLoop() {
+    if (gameLoopRunning) return;
+    gameLoopRunning = true;
+    gameLoop();
+}
+
+function stopGameLoop() {
+    gameLoopRunning = false;
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+}
+
 function gameLoop() {
-    requestAnimationFrame(gameLoop);
+    if (!gameLoopRunning) return;
+    animationFrameId = requestAnimationFrame(gameLoop);
     if (paused) return;
     if (gameState === 'dying') {
         const dt = Math.min(clock.getDelta(), 0.05);
@@ -3361,6 +3470,7 @@ function gameLoop() {
             document.getElementById('bestScore').textContent = 'BEST: ' + highScore;
             document.getElementById('newRecord').style.display = isNew ? '' : 'none';
             dimScene(true);
+            stopGameLoop();
         }
         return;
     }
@@ -3411,6 +3521,12 @@ function gameLoop() {
     // Survival mode timer
     if (gameMode === 'survival' && waveActive) {
         survivalTime += dt;
+        const elapsedSecond = Math.floor(survivalTime);
+        if (elapsedSecond !== survivalHudSecond) {
+            survivalHudSecond = elapsedSecond;
+            updateHUD();
+        }
     }
     renderer.render(scene, camera);
+    if (gameState === 'gameover' || gameState === 'win') stopGameLoop();
 }
