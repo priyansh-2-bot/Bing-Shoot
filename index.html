@@ -3,475 +3,1677 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BING SHOOT - Tactical FPS</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { overflow: hidden; background: #000; font-family: 'Segoe UI', Arial, sans-serif; position: relative; }
-        canvas { display: block; }
+    <meta name="description" content="BING SHOOT — Tactical FPS browser game. Engage in intense urban combat across Indian city sectors. Play campaign or survival mode with upgradeable weapons.">
+    <meta name="theme-color" content="#0a0e14">
+    <meta property="og:title" content="BING SHOOT — Tactical FPS">
+    <meta property="og:description" content="Browser-based tactical FPS with campaign and survival modes, weapon upgrades, and boss battles.">
+    <meta property="og:type" content="website">
+    <meta property="og:color" content="#00E5A0">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="BING SHOOT — Tactical FPS">
+    <meta name="twitter:description" content="Browser-based tactical FPS with campaign and survival modes, weapon upgrades, and boss battles.">
+    <title>BING SHOOT — Tactical FPS</title>
 
-        /* Background character image — dimmed, behind everything */
+    <!-- Favicon: original tactical shield icon (inline SVG data URI) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%230a0e14'/%3E%3Cpath d='M16 4 L28 16 L16 28 L4 16 Z' fill='none' stroke='%2300E5A0' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%2300E5A0'/%3E%3C/svg%3E">
+
+    <style>
+        /* ==========================================================================
+           DESIGN SYSTEM — BING SHOOT TACTICAL FPS
+           ========================================================================== */
+        :root {
+            --bg-color: #0a0e14;
+            --panel-bg: rgba(15, 22, 35, 0.92);
+            --panel-border: rgba(0, 229, 160, 0.25);
+            --accent-primary: #00E5A0;
+            --accent-secondary: #00B8D4;
+            --accent-danger: #FF5252;
+            --accent-warn: #FFD740;
+            --text-primary: #FFFFFF;
+            --text-secondary: #9bc;
+            --text-muted: #6a7a8a;
+            --font-main: 'Segoe UI', 'Roboto', Arial, sans-serif;
+            --font-mono: 'Courier New', monospace;
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.25s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            overflow: hidden;
+            background: var(--bg-color);
+            font-family: var(--font-main);
+            color: var(--text-primary);
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* ==========================================================================
+           BACKGROUND CHARACTER (MENU ONLY)
+           ========================================================================== */
         #bg-character {
             position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: -1;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
             background-image: url('https://images.unsplash.com/photo-1591854273327-0e98febfe05c?q=80&w=2070&auto=format&fit=crop');
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
-            filter: brightness(0.35) contrast(1.1);
+            filter: brightness(0.25) contrast(1.2);
+            transition: opacity 0.4s ease;
         }
+
         #bg-character::after {
             content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%);
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(10, 14, 20, 0.4) 0%, rgba(10, 14, 20, 0.75) 100%);
         }
-        .bg-hidden { display: none !important; }
 
-        #blocker {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 100;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        .bg-hidden {
+            display: none !important;
         }
-        #blocker.hidden { display: none; }
+
+        /* ==========================================================================
+           LOADING SCREEN
+           ========================================================================== */
+        #loadingScreen {
+            position: fixed;
+            inset: 0;
+            background: #0a0e14;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        #loadingScreen.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-logo {
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: 10px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 0 20px rgba(0, 229, 160, 0.4));
+        }
+
+        .loading-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            letter-spacing: 4px;
+            margin-bottom: 32px;
+            text-transform: uppercase;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(0, 229, 160, 0.2);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .loading-status {
+            margin-top: 16px;
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==========================================================================
+           MAIN MENU BLOCKER
+           ========================================================================== */
+        #blocker {
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 12, 20, 0.92);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #blocker.hidden {
+            display: none;
+        }
+
+        .menu-container {
+            text-align: center;
+            max-width: 520px;
+            padding: 24px;
+        }
 
         .menu-title {
-            font-size: 64px; font-weight: 900; letter-spacing: 8px;
-            background: linear-gradient(135deg, #00E5A0, #00B8D4);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 40px rgba(0,229,160,0.3);
+            font-size: 72px;
+            font-weight: 900;
+            letter-spacing: 12px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 0 40px rgba(0, 229, 160, 0.3));
         }
+
         .menu-subtitle {
-            font-size: 16px; color: #8aa; letter-spacing: 6px; margin-top: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            letter-spacing: 8px;
+            margin-bottom: 24px;
+            text-transform: uppercase;
         }
+
+        .menu-best {
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--accent-warn);
+            text-shadow: 0 0 14px rgba(255, 180, 60, 0.5);
+            margin-bottom: 32px;
+        }
+
+        .menu-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
         .menu-btn {
-            margin-top: 30px; padding: 16px 48px; font-size: 18px; font-weight: 700;
-            background: linear-gradient(135deg, #00C896, #00A87A);
-            color: #fff; border: none; border-radius: 6px; cursor: pointer;
-            letter-spacing: 3px; transition: all 0.2s;
+            width: 100%;
+            max-width: 340px;
+            margin: 0 auto;
+            padding: 16px 24px;
+            font-size: 17px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1a2533, #243242);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all var(--transition-normal);
+            text-transform: uppercase;
+            position: relative;
+            overflow: hidden;
         }
-        .menu-btn:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0,200,150,0.4); }
+
+        .menu-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(0, 229, 160, 0.15), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+
+        .menu-btn:hover::before {
+            transform: translateX(100%);
+        }
+
+        .menu-btn:hover {
+            background: linear-gradient(135deg, #243242, #2e4052);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 25px rgba(0, 229, 160, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .menu-btn:active {
+            transform: translateY(0);
+        }
+
+        .menu-btn.primary {
+            background: linear-gradient(135deg, var(--accent-primary), #00A87A);
+            border-color: transparent;
+            color: #000;
+        }
+
+        .menu-btn.primary:hover {
+            background: linear-gradient(135deg, #00f2b0, #00c896);
+            box-shadow: 0 0 35px rgba(0, 229, 160, 0.5);
+        }
+
+        .menu-btn.secondary {
+            background: linear-gradient(135deg, #ff6b35, #f7931e);
+            border-color: transparent;
+            color: #fff;
+        }
+
+        .menu-btn.secondary:hover {
+            background: linear-gradient(135deg, #ff8555, #ffa040);
+            box-shadow: 0 0 35px rgba(255, 107, 53, 0.4);
+        }
+
         .menu-controls {
-            margin-top: 40px; color: #7ab; font-size: 12px; letter-spacing: 1px;
-            text-align: center; line-height: 2;
+            font-size: 11px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            line-height: 2.2;
+            max-width: 480px;
+            margin: 0 auto;
+            border-top: 1px solid var(--panel-border);
+            padding-top: 24px;
         }
 
+        .menu-controls kbd {
+            display: inline-block;
+            background: rgba(0, 229, 160, 0.1);
+            border: 1px solid var(--panel-border);
+            border-radius: 3px;
+            padding: 1px 6px;
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            font-size: 10px;
+            margin: 0 2px;
+        }
+
+        /* ==========================================================================
+           HUD
+           ========================================================================== */
         #hud {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 10;
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 10;
         }
-        #hud.hidden { display: none; }
 
-        .hud-bottom {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 40px; align-items: flex-end;
-        }
-        .hud-ammo { font-size: 48px; font-weight: 900; color: #00E5FF; text-shadow: 0 0 20px rgba(0,229,255,0.4); }
-        .hud-ammo small { font-size: 18px; color: #6ad; }
-        .hud-weapon { font-size: 14px; color: #9bc; letter-spacing: 2px; margin-bottom: 8px; }
-
-        .hud-health-container {
-            position: absolute; bottom: 20px; left: 20px;
-        }
-        .hud-health-bar {
-            width: 200px; height: 8px; background: rgba(20,20,30,0.8);
-            border: 1px solid rgba(0,229,160,0.3); border-radius: 4px; overflow: hidden;
-        }
-        .hud-health-fill {
-            height: 100%; background: linear-gradient(90deg, #00E5A0, #7CFF6B);
-            transition: width 0.3s;
-        }
-        .hud-health-text {
-            font-size: 14px; color: #00E5A0; margin-top: 4px;
+        #hud.hidden {
+            display: none;
         }
 
         .hud-top-left {
-            position: absolute; top: 20px; left: 20px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 11;
         }
-        .hud-level { font-size: 20px; font-weight: 700; color: #fff; }
-        .hud-score { font-size: 16px; color: #FFD740; margin-top: 4px; }
-        .hud-kills { font-size: 14px; color: #9ab; margin-top: 2px; }
+
+        .hud-level {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--text-primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .hud-score {
+            font-size: 15px;
+            color: var(--accent-warn);
+            margin-top: 3px;
+            font-family: var(--font-mono);
+        }
+
+        .hud-kills {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+            font-family: var(--font-mono);
+        }
 
         .hud-minimap {
-            position: absolute; top: 20px; right: 20px;
-            width: 140px; height: 140px; border-radius: 50%;
-            background: rgba(8,16,30,0.85); border: 2px solid rgba(0,229,160,0.4);
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(8, 12, 20, 0.85);
+            border: 2px solid rgba(0, 229, 160, 0.4);
             overflow: hidden;
+            z-index: 11;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
         }
-        .hud-minimap canvas { width: 100%; height: 100%; }
 
-        .crosshair {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 24px; height: 24px;
+        .hud-minimap canvas {
+            width: 100%;
+            height: 100%;
         }
-        .crosshair::before, .crosshair::after {
-            content: ''; position: absolute; background: rgba(255,255,255,0.9);
-        }
-        .crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
-        .crosshair::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
 
-        .hitmarker {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 20px; height: 20px; opacity: 0;
-            transition: opacity 0.1s;
+        /* Health bar — bottom left */
+        .hud-health-container {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            z-index: 11;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
         }
-        .hitmarker.show { opacity: 1; }
-        .hitmarker::before, .hitmarker::after {
-            content: ''; position: absolute; background: #FF5252;
-        }
-        .hitmarker::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%) rotate(45deg); }
-        .hitmarker::after { width: 100%; height: 2px; top: 50%; transform: translateY(-50%) rotate(45deg); }
 
-        .damage-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: radial-gradient(ellipse at center, transparent 50%, rgba(180,0,0,0.6) 100%);
-            opacity: 0; transition: opacity 0.15s;
+        .hud-health-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        .damage-overlay.show { opacity: 1; }
 
-        .game-over-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 200;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
+        .hud-health-bar-wrap {
+            width: 220px;
+            height: 10px;
+            background: rgba(20, 20, 30, 0.8);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            overflow: hidden;
+            position: relative;
         }
-        .game-over-screen.show { display: flex; }
-        .game-over-title { font-size: 56px; font-weight: 900; color: #FF5252; letter-spacing: 6px; }
-        .game-over-score { font-size: 24px; color: #FFD740; margin-top: 16px; }
-        .best-score {
-            font-size: 26px; font-weight: 900; letter-spacing: 3px; margin-top: 10px;
-            background: linear-gradient(90deg, #FFD740, #ff9a3c, #FFD740);
-            background-size: 200% auto;
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-            animation: bestShine 2.5s linear infinite;
-            filter: drop-shadow(0 0 8px rgba(255,180,60,0.55));
-        }
-        @keyframes bestShine { to { background-position: 200% center; } }
-        .new-record {
-            font-size: 34px; font-weight: 900; letter-spacing: 4px; margin-top: 12px;
-            background: linear-gradient(90deg, #ff3c6e, #FFD740, #00E5A0, #ff3c6e);
-            background-size: 300% auto;
-            -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-            animation: recordFlash 1.2s linear infinite;
-            filter: drop-shadow(0 0 12px rgba(255,60,120,0.7));
-        }
-        @keyframes recordFlash {
-            0% { background-position: 0% center; transform: scale(1); }
-            50% { transform: scale(1.06); }
-            100% { background-position: 300% center; transform: scale(1); }
-        }
-        .menu-best {
-            font-size: 18px; font-weight: 800; letter-spacing: 3px; margin-top: 14px;
-            color: #FFD740; text-shadow: 0 0 14px rgba(255,180,60,0.6);
-        }
-        .game-over-btn {
-            margin-top: 30px; padding: 14px 40px; font-size: 16px; font-weight: 700;
-            background: #00C896; color: #fff; border: none; border-radius: 6px;
-            cursor: pointer; letter-spacing: 2px;
-        }
-        .game-over-btn:hover { background: #00E5A0; }
 
-        .win-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 200;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
+        .hud-health-bar-wrap::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent 33%, rgba(255,255,255,0.05) 50%, transparent 66%);
+            animation: shimmer 2s infinite;
         }
-        .win-screen.show { display: flex; }
-        .win-title { font-size: 56px; font-weight: 900; color: #00E5A0; letter-spacing: 6px; }
-        .win-score { font-size: 24px; color: #FFD740; margin-top: 16px; }
-        .win-btn {
-            margin-top: 30px; padding: 14px 40px; font-size: 16px; font-weight: 700;
-            background: #00C896; color: #fff; border: none; border-radius: 6px;
-            cursor: pointer; letter-spacing: 2px;
-        }
-        .win-btn:hover { background: #00E5A0; }
 
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .hud-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-primary), #7CFF6B);
+            width: 100%;
+            transition: width 0.25s ease, background-color 0.2s ease;
+        }
+
+        .hud-health-fill.low {
+            background: linear-gradient(90deg, var(--accent-danger), #FF8866);
+            animation: pulseHealth 1.5s infinite;
+        }
+
+        @keyframes pulseHealth {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .hud-health-text {
+            font-size: 13px;
+            color: var(--accent-primary);
+            font-family: var(--font-mono);
+            font-weight: 700;
+        }
+
+        /* Weapon slots — bottom center-left */
         .weapon-slots {
-            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-            display: flex; gap: 6px;
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            z-index: 11;
         }
+
         .weapon-slot {
-            width: 48px; height: 48px; background: rgba(10,15,25,0.7);
-            border: 1px solid rgba(0,229,160,0.2); border-radius: 4px;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px; color: #688; letter-spacing: 1px;
+            width: 46px;
+            height: 46px;
+            background: rgba(10, 15, 25, 0.8);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            transition: all var(--transition-fast);
         }
+
         .weapon-slot.active {
-            border-color: #00E5A0; color: #00E5A0;
-            background: rgba(0,229,160,0.1);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            background: rgba(0, 229, 160, 0.12);
+            box-shadow: 0 0 15px rgba(0, 229, 160, 0.2);
         }
+
         .weapon-slot.locked {
-            opacity: 0.35; border-style: dashed;
+            opacity: 0.4;
+            border-style: dashed;
         }
 
-        #unlockBanner {
-            position: absolute; top: 22%; left: 50%; transform: translateX(-50%) scale(0.9);
-            font-size: 20px; font-weight: 900; letter-spacing: 2px; color: #FFD740;
-            background: rgba(10,12,20,0.85); border: 1px solid rgba(255,215,64,0.5);
-            border-radius: 8px; padding: 12px 28px; white-space: nowrap;
-            opacity: 0; transition: opacity 0.3s, transform 0.3s;
+        /* Bottom center ammo + weapon name */
+        .hud-bottom {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: flex-end;
+            gap: 24px;
+            z-index: 11;
         }
-        #unlockBanner.show { opacity: 1; transform: translateX(-50%) scale(1); }
 
+        .hud-weapon {
+            font-size: 14px;
+            color: var(--text-secondary);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .hud-ammo {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .hud-ammo .ammo-count {
+            font-size: 48px;
+            font-weight: 900;
+            color: #00E5FF;
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+            font-family: var(--font-mono);
+        }
+
+        .hud-ammo .ammo-max {
+            font-size: 18px;
+            color: #6ad;
+            font-family: var(--font-mono);
+        }
+
+        .hud-ammo .ammo-count.low {
+            color: var(--accent-danger);
+            text-shadow: 0 0 15px rgba(255, 82, 82, 0.5);
+            animation: pulseAmmo 1s infinite;
+        }
+
+        @keyframes pulseAmmo {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Medkit + throwables — bottom right */
         .medkit-indicator {
-            position: absolute; bottom: 20px; right: 20px;
-            font-size: 14px; color: #7CFF6B;
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            font-size: 13px;
+            color: #7CFF6B;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            z-index: 11;
         }
 
         .throwable-indicator {
-            position: absolute; bottom: 44px; right: 20px;
-            font-size: 12px; color: #FFB457; letter-spacing: 1px;
+            position: absolute;
+            bottom: 48px;
+            right: 24px;
+            font-size: 12px;
+            color: #FFB457;
+            letter-spacing: 1px;
+            z-index: 11;
         }
 
-        #scopeOverlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.12s;
+        /* Crosshair */
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 26px;
+            height: 26px;
+            z-index: 12;
         }
-        #scopeOverlay.show { opacity: 1; }
+
+        .crosshair::before, .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(255, 255, 255, 0.85);
+        }
+
+        .crosshair::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .crosshair::after {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Hit marker */
+        .hitmarker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            opacity: 0;
+            transition: opacity 0.1s;
+            z-index: 13;
+        }
+
+        .hitmarker.show {
+            opacity: 1;
+        }
+
+        .hitmarker::before, .hitmarker::after {
+            content: '';
+            position: absolute;
+            background: #FF5252;
+        }
+
+        .hitmarker::before {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
+        }
+
+        .hitmarker::after {
+            width: 100%;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%) rotate(45deg);
+        }
+
+        /* Kill feed */
+        .kill-feed {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            pointer-events: none;
+            z-index: 12;
+        }
+
+        .kill-item {
+            background: rgba(8, 12, 20, 0.8);
+            border-left: 3px solid var(--accent-primary);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            animation: slideIn 0.3s ease-out;
+            backdrop-filter: blur(6px);
+            border-radius: 0 4px 4px 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .kill-item.headshot {
+            border-left-color: var(--accent-warn);
+            color: var(--accent-warn);
+        }
+
+        .kill-item .time {
+            color: var(--text-muted);
+            font-size: 10px;
+            margin-right: 8px;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(40px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes headshotPop {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            20% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            80% { transform: translate(-50%, -55%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -70%) scale(1); opacity: 0; }
+        }
+
+        /* Damage overlay */
+        .damage-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(139, 0, 0, 0.5) 100%);
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 11;
+        }
+
+        .damage-overlay.show {
+            opacity: 1;
+        }
+
+        /* Boss health bar */
+        #bossHealthBar {
+            position: absolute;
+            top: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 420px;
+            background: rgba(8, 12, 20, 0.85);
+            border: 2px solid #8B0000;
+            border-radius: 6px;
+            padding: 10px 16px;
+            text-align: center;
+            z-index: 14;
+            display: none;
+            box-shadow: 0 0 30px rgba(139, 0, 0, 0.3);
+        }
+
+        .boss-health-title {
+            color: #FF4444;
+            font-size: 15px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .boss-health-bar-wrap {
+            height: 12px;
+            background: rgba(139, 0, 0, 0.3);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(139, 0, 0, 0.5);
+        }
+
+        .boss-health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #FF4444, #FF8800);
+            width: 100%;
+            transition: width 0.2s ease;
+        }
+
+        /* Scope overlay */
+        #scopeOverlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s;
+            z-index: 12;
+        }
+
+        #scopeOverlay.show {
+            opacity: 1;
+        }
+
         .scope-circle {
-            width: 62vmin; height: 62vmin; border-radius: 50%;
+            width: 60vmin;
+            height: 60vmin;
+            border-radius: 50%;
             border: 3px solid #0a0a0a;
-            box-shadow: 0 0 0 200vmax rgba(0,0,0,0.97), inset 0 0 60px rgba(0,0,0,0.6);
+            box-shadow: 0 0 0 200vmax rgba(0, 0, 0, 0.98), inset 0 0 60px rgba(0, 0, 0, 0.5);
             position: relative;
         }
+
         .scope-v, .scope-h {
-            position: absolute; background: #39ff88;
+            position: absolute;
+            background: #39ff88;
             box-shadow: 0 0 4px #39ff88, 0 0 2px #000;
         }
-        .scope-v { width: 2px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
-        .scope-h { height: 2px; width: 100%; top: 50%; left: 0; transform: translateY(-50%); }
-        .scope-dot {
-            position: absolute; width: 8px; height: 8px; border-radius: 50%;
-            background: #39ff88; box-shadow: 0 0 6px #39ff88;
-            left: 50%; top: 50%; transform: translate(-50%, -50%);
+
+        .scope-v {
+            width: 2px;
+            height: 100%;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
         }
-        .scope-mil {
-            position: absolute; width: 6px; height: 6px; border-radius: 50%;
-            background: #39ff88; box-shadow: 0 0 4px #39ff88;
+
+        .scope-h {
+            height: 2px;
+            width: 100%;
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        .scope-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #39ff88;
+            box-shadow: 0 0 6px #39ff88;
+            left: 50%;
+            top: 50%;
             transform: translate(-50%, -50%);
         }
 
+        .scope-mil {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #39ff88;
+            box-shadow: 0 0 4px #39ff88;
+            transform: translate(-50%, -50%);
+        }
+
+        /* Spawn protection */
         #protIndicator {
-            position: absolute; bottom: 68px; right: 20px;
-            font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #7df9ff;
-            background: rgba(10,20,30,0.7); border: 1px solid rgba(125,249,255,0.4);
-            border-radius: 4px; padding: 4px 10px; display: none;
+            position: absolute;
+            bottom: 80px;
+            right: 24px;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: #7df9ff;
+            background: rgba(10, 20, 30, 0.8);
+            border: 1px solid rgba(125, 249, 255, 0.4);
+            border-radius: 4px;
+            padding: 6px 14px;
+            display: none;
+            z-index: 11;
         }
 
+        /* Unlock banner */
+        #unlockBanner {
+            position: absolute;
+            top: 24%;
+            left: 50%;
+            transform: translateX(-50%) scale(0.9);
+            font-size: 19px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--accent-warn);
+            background: rgba(10, 12, 20, 0.9);
+            border: 1px solid rgba(255, 215, 64, 0.4);
+            border-radius: 8px;
+            padding: 14px 32px;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            z-index: 12;
+            box-shadow: 0 0 30px rgba(255, 215, 64, 0.15);
+        }
+
+        #unlockBanner.show {
+            opacity: 1;
+            transform: translateX(-50%) scale(1);
+        }
+
+        /* ==========================================================================
+           INTERMISSION
+           ========================================================================== */
         #intermission {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.72); z-index: 140;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 12, 20, 0.88);
+            z-index: 140;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        #intermission.show { display: flex; }
-        .inter-title { font-size: 20px; letter-spacing: 4px; color: #7df9ff; }
-        .inter-level { font-size: 52px; font-weight: 900; letter-spacing: 5px; color: #fff; margin-top: 10px; }
-        .inter-place { font-size: 22px; letter-spacing: 3px; color: #FFD740; margin-top: 6px; }
-        .inter-unlock { font-size: 16px; letter-spacing: 2px; color: #00E5A0; margin-top: 14px; }
-        .inter-count { font-size: 64px; font-weight: 900; color: #00E5A0; margin-top: 18px; }
-        .inter-hint { font-size: 13px; letter-spacing: 1px; color: #9ab; margin-top: 14px; }
 
+        #intermission.show {
+            display: flex;
+        }
+
+        .inter-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 40px 56px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.4);
+            max-width: 560px;
+            width: 90%;
+        }
+
+        .inter-title {
+            font-size: 17px;
+            letter-spacing: 4px;
+            color: var(--accent-secondary);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .inter-level {
+            font-size: 56px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            color: var(--text-primary);
+            margin: 8px 0;
+        }
+
+        .inter-place {
+            font-size: 20px;
+            letter-spacing: 3px;
+            color: var(--accent-warn);
+            margin-bottom: 20px;
+        }
+
+        .inter-unlock {
+            font-size: 15px;
+            letter-spacing: 2px;
+            color: var(--accent-primary);
+            margin-bottom: 24px;
+        }
+
+        .inter-count {
+            font-size: 56px;
+            font-weight: 900;
+            color: var(--accent-primary);
+            margin-top: 10px;
+            font-family: var(--font-mono);
+        }
+
+        .inter-hint {
+            font-size: 13px;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-top: 20px;
+        }
+
+        /* ==========================================================================
+           PAUSE SCREEN
+           ========================================================================== */
         .pause-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.88); z-index: 150;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 12, 20, 0.88);
+            z-index: 150;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        .pause-screen.show { display: flex; }
-        .pause-title {
-            font-size: 42px; font-weight: 900; letter-spacing: 6px;
-            background: linear-gradient(135deg, #00E5A0, #00B8D4);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .pause-btn {
-            margin-top: 16px; padding: 14px 50px; font-size: 16px; font-weight: 700;
-            background: linear-gradient(135deg, #00C896, #00A87A);
-            color: #fff; border: none; border-radius: 6px; cursor: pointer;
-            letter-spacing: 3px; transition: all 0.2s; min-width: 240px;
-        }
-        .pause-btn:hover { transform: scale(1.05); box-shadow: 0 0 24px rgba(0,200,150,0.35); }
-        .pause-btn.secondary { background: linear-gradient(135deg, #3a4a5a, #2a3a4a); }
-        .pause-btn.secondary:hover { box-shadow: 0 0 24px rgba(80,120,160,0.3); }
 
+        .pause-screen.show {
+            display: flex;
+        }
+
+        .pause-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 48px 64px;
+            text-align: center;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .pause-title {
+            font-size: 48px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 32px;
+        }
+
+        .pause-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .pause-btn {
+            width: 260px;
+            padding: 16px 24px;
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1a2533, #243242);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all var(--transition-normal);
+            text-transform: uppercase;
+        }
+
+        .pause-btn:hover {
+            background: linear-gradient(135deg, #243242, #2e4052);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 25px rgba(0, 229, 160, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .pause-btn.secondary {
+            background: linear-gradient(135deg, #181c24, #242c36);
+            border-color: rgba(255, 82, 82, 0.2);
+            color: #FF5252;
+        }
+
+        .pause-btn.secondary:hover {
+            border-color: #FF5252;
+            box-shadow: 0 0 25px rgba(255, 82, 82, 0.2);
+        }
+
+        /* ==========================================================================
+           SETTINGS SCREEN
+           ========================================================================== */
         .settings-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.92); z-index: 160;
-            display: none; flex-direction: column; align-items: center; justify-content: center;
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 12, 20, 0.92);
+            z-index: 160;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
-        .settings-screen.show { display: flex; }
+
+        .settings-screen.show {
+            display: flex;
+        }
+
+        .settings-container {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 40px 56px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 92%;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
         .settings-title {
-            font-size: 36px; font-weight: 900; letter-spacing: 5px; color: #00E5A0; margin-bottom: 30px;
+            font-size: 40px;
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: var(--accent-primary);
+            margin-bottom: 28px;
+            text-align: center;
         }
+
         .settings-group {
-            background: rgba(15,20,30,0.85); border: 1px solid rgba(0,229,160,0.2);
-            border-radius: 8px; padding: 20px 30px; min-width: 380px;
+            background: rgba(10, 15, 25, 0.6);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
         }
+
+        .settings-group-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            display: block;
+        }
+
         .settings-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 0; border-bottom: 1px solid rgba(0,229,160,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(0, 229, 160, 0.06);
         }
-        .settings-row:last-child { border-bottom: none; }
-        .settings-label { font-size: 14px; color: #9bc; letter-spacing: 1px; }
-        .settings-value { font-size: 14px; color: #FFD740; min-width: 50px; text-align: right; }
+
+        .settings-row:last-child {
+            border-bottom: none;
+        }
+
+        .settings-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+        }
+
+        .settings-value {
+            font-size: 14px;
+            color: var(--accent-warn);
+            min-width: 64px;
+            text-align: right;
+            font-family: var(--font-mono);
+        }
+
         .settings-ctrl {
-            display: flex; align-items: center; gap: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
+
         .settings-ctrl button {
-            width: 32px; height: 32px; font-size: 16px; font-weight: 700;
-            background: rgba(0,229,160,0.15); color: #00E5A0; border: 1px solid rgba(0,229,160,0.3);
-            border-radius: 4px; cursor: pointer; transition: all 0.15s;
+            width: 36px;
+            height: 36px;
+            font-size: 17px;
+            font-weight: 800;
+            background: rgba(0, 229, 160, 0.1);
+            color: var(--accent-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
         }
-        .settings-ctrl button:hover { background: rgba(0,229,160,0.3); }
+
+        .settings-ctrl button:hover {
+            background: rgba(0, 229, 160, 0.2);
+            border-color: var(--accent-primary);
+        }
+
+        .settings-ctrl button.active {
+            background: rgba(0, 229, 160, 0.25);
+            color: var(--accent-primary);
+            border-color: rgba(0, 229, 160, 0.5);
+        }
+
         .settings-toggle {
-            padding: 6px 16px; font-size: 12px; font-weight: 700;
-            background: rgba(0,229,160,0.15); color: #00E5A0;
-            border: 1px solid rgba(0,229,160,0.3); border-radius: 4px;
-            cursor: pointer; transition: all 0.15s; letter-spacing: 1px;
+            padding: 6px 18px;
+            font-size: 12px;
+            font-weight: 800;
+            background: rgba(0, 229, 160, 0.1);
+            color: var(--accent-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
         }
-        .settings-toggle:hover { background: rgba(0,229,160,0.3); }
-        .settings-toggle.off { background: rgba(255,80,60,0.15); color: #FF5252; border-color: rgba(255,80,60,0.3); }
+
+        .settings-toggle:hover {
+            background: rgba(0, 229, 160, 0.2);
+        }
+
+        .settings-toggle.off {
+            background: rgba(255, 80, 60, 0.1);
+            color: #FF5252;
+            border-color: rgba(255, 80, 60, 0.3);
+        }
+
+        .settings-restore {
+            width: 100%;
+            padding: 12px 24px;
+            font-size: 13px;
+            font-weight: 700;
+            background: rgba(255, 80, 60, 0.1);
+            color: #FF5252;
+            border: 1px solid rgba(255, 80, 60, 0.3);
+            border-radius: 5px;
+            cursor: pointer;
+            letter-spacing: 1px;
+            margin-top: 8px;
+            transition: all var(--transition-fast);
+        }
+
+        .settings-restore:hover {
+            background: rgba(255, 80, 60, 0.2);
+            border-color: #FF5252;
+        }
+
         .settings-back {
-            margin-top: 24px; padding: 12px 40px; font-size: 14px; font-weight: 700;
-            background: linear-gradient(135deg, #3a4a5a, #2a3a4a);
-            color: #fff; border: none; border-radius: 6px; cursor: pointer;
-            letter-spacing: 2px; transition: all 0.2s;
+            width: 100%;
+            margin-top: 20px;
+            padding: 14px 40px;
+            font-size: 15px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1a2533, #243242);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all var(--transition-normal);
+            text-transform: uppercase;
         }
-        .settings-back:hover { transform: scale(1.05); }
+
+        .settings-back:hover {
+            background: linear-gradient(135deg, #243242, #2e4052);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 25px rgba(0, 229, 160, 0.2);
+        }
+
+        /* ==========================================================================
+           GAME OVER & WIN SCREENS
+           ========================================================================== */
+        .game-over-screen,
+        .win-screen {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 6, 10, 0.94);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .game-over-screen.show,
+        .win-screen.show {
+            display: flex;
+        }
+
+        .result-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            padding: 56px 72px;
+            text-align: center;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 0 80px rgba(0, 0, 0, 0.6);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        .result-title {
+            font-size: 60px;
+            font-weight: 900;
+            letter-spacing: 8px;
+            margin-bottom: 12px;
+        }
+
+        .game-over-screen .result-title {
+            color: #FF5252;
+            text-shadow: 0 0 40px rgba(255, 82, 82, 0.3);
+        }
+
+        .win-screen .result-title {
+            color: var(--accent-primary);
+            text-shadow: 0 0 40px rgba(0, 229, 160, 0.3);
+        }
+
+        .new-record {
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(90deg, #ff3c6e, var(--accent-warn), var(--accent-primary), #ff3c6e);
+            background-size: 300% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: recordFlash 1.6s linear infinite;
+            filter: drop-shadow(0 0 12px rgba(255, 60, 120, 0.6));
+            margin: 16px 0;
+        }
+
+        @keyframes recordFlash {
+            0% { background-position: 0% center; transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { background-position: 300% center; transform: scale(1); }
+        }
+
+        .result-score {
+            font-size: 32px;
+            color: var(--accent-warn);
+            font-weight: 900;
+            font-family: var(--font-mono);
+            margin: 8px 0;
+        }
+
+        .result-best {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--accent-warn);
+            text-shadow: 0 0 14px rgba(255, 180, 60, 0.5);
+            margin-top: 10px;
+        }
+
+        .result-stats {
+            margin-top: 24px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+        }
+
+        .result-stats div {
+            margin: 4px 0;
+        }
+
+        .result-actions {
+            margin-top: 36px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .result-btn {
+            width: 220px;
+            padding: 16px 24px;
+            font-size: 16px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), #00A87A);
+            color: #000;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            transition: all var(--transition-normal);
+            text-transform: uppercase;
+        }
+
+        .result-btn:hover {
+            background: linear-gradient(135deg, #00f2b0, #00c896);
+            box-shadow: 0 0 35px rgba(0, 229, 160, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .result-btn.secondary {
+            background: linear-gradient(135deg, #1a2533, #243242);
+            color: var(--text-primary);
+            border: 1px solid var(--panel-border);
+        }
+
+        .result-btn.secondary:hover {
+            background: linear-gradient(135deg, #243242, #2e4052);
+            border-color: var(--accent-secondary);
+        }
+
+        /* ==========================================================================
+           RESPONSIVE DESIGN
+           ========================================================================== */
+        @media (max-width: 900px) {
+            .settings-container {
+                padding: 28px 32px;
+                width: 94%;
+            }
+            .pause-panel {
+                padding: 36px 48px;
+            }
+            .result-panel {
+                padding: 40px 48px;
+            }
+            .menu-container {
+                padding: 20px 16px;
+            }
+            .menu-title {
+                font-size: 56px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .menu-title {
+                font-size: 44px !important;
+                letter-spacing: 8px !important;
+            }
+            .menu-btn {
+                width: 90%;
+                max-width: 320px;
+                padding: 14px 20px;
+                font-size: 16px;
+            }
+            .menu-controls {
+                font-size: 10px;
+            }
+            .hud-health-bar-wrap {
+                width: 160px !important;
+            }
+            .hud-ammo .ammo-count {
+                font-size: 32px !important;
+            }
+            .hud-weapon {
+                font-size: 12px !important;
+            }
+            .hud-top-left {
+                left: 12px;
+                top: 12px;
+            }
+            .hud-top-left .hud-level {
+                font-size: 14px;
+            }
+            .hud-top-left .hud-score {
+                font-size: 12px;
+            }
+            .hud-top-left .hud-kills {
+                font-size: 11px;
+                width: 180px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .hud-minimap {
+                width: 100px;
+                height: 100px;
+                top: 12px;
+                right: 12px;
+            }
+            .weapon-slots {
+                bottom: 64px;
+                gap: 6px;
+            }
+            .weapon-slot {
+                width: 38px;
+                height: 38px;
+                font-size: 10px;
+            }
+            .crosshair {
+                width: 20px;
+                height: 20px;
+            }
+            .hitmarker {
+                width: 18px;
+                height: 18px;
+            }
+            .boss-health {
+                width: 300px;
+            }
+            .kill-feed {
+                width: 240px;
+                right: 12px;
+                top: 12px;
+            }
+            .kill-item {
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+            .inter-panel,
+            .pause-panel,
+            .result-panel {
+                padding: 32px 32px;
+                width: 92%;
+            }
+            .pause-title,
+            .result-title {
+                font-size: 44px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .menu-title {
+                font-size: 34px !important;
+            }
+            .hud-health-bar-wrap {
+                width: 140px !important;
+            }
+            .hud-ammo .ammo-count {
+                font-size: 26px !important;
+            }
+            .hud-top-left .hud-kills {
+                font-size: 10px;
+                width: 140px;
+            }
+            .hud-minimap {
+                width: 80px;
+                height: 80px;
+            }
+            .weapon-slot {
+                width: 34px;
+                height: 34px;
+                font-size: 9px;
+            }
+            .pause-title,
+            .result-title {
+                font-size: 36px;
+            }
+            .pause-panel {
+                padding: 28px 24px;
+            }
+            .inter-panel,
+            .result-panel {
+                padding: 28px 24px;
+            }
+        }
+
+        /* Reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .loading-spinner {
+                animation: none;
+                border-top-color: var(--accent-primary);
+            }
+        }
+
+        /* Focus indicators for accessibility */
+        button:focus-visible {
+            outline: 2px solid var(--accent-primary);
+            outline-offset: 2px;
+        }
+
+        button:focus {
+            outline: none;
+        }
     </style>
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loadingScreen">
+        <div class="loading-logo">BING SHOOT</div>
+        <div class="loading-subtitle">TACTICAL FPS</div>
+        <div class="loading-spinner"></div>
+        <div class="loading-status" id="loadingStatus">Initializing engine...</div>
+    </div>
+
+    <!-- Background Character Image (Menu Only) -->
     <div id="bg-character"></div>
+
+    <!-- Main Menu Overlay -->
     <div id="blocker">
-        <div class="menu-title">BING SHOOT</div>
-        <div class="menu-subtitle">TACTICAL CAMPAIGN</div>
-        <div class="menu-best" id="menuBest">★ BEST: 0 ★</div>
-        <button class="menu-btn" id="startBtn">START GAME</button>
-        <div class="menu-controls">
-            WASD - MOVE &nbsp;|&nbsp; MOUSE - LOOK &nbsp;|&nbsp; LMB - SHOOT &nbsp;|&nbsp; RMB - AIM<br>
-            SPACE - JUMP &nbsp;|&nbsp; CTRL - CROUCH &nbsp;|&nbsp; SHIFT - SPRINT<br>
-            1-7 / SCROLL - WEAPONS &nbsp;|&nbsp; R - RELOAD &nbsp;|&nbsp; Q - MEDKIT<br>
-            G - GRENADE &nbsp;|&nbsp; F - FIRE BOMB
+        <div class="menu-container">
+            <div class="menu-title" aria-label="Bing Shoot">BING SHOOT</div>
+            <div class="menu-subtitle">TACTICAL FPS</div>
+            <div class="menu-best" id="menuBest" aria-label="Best score">★ BEST: 0 ★</div>
+            <div class="menu-actions" role="menu">
+                <button class="menu-btn primary" id="btnCampaign" role="menuitem" aria-label="Start Campaign Mode">CAMPAIGN</button>
+                <button class="menu-btn secondary" id="btnSurvival" role="menuitem" aria-label="Start Survival Mode">SURVIVAL</button>
+            </div>
+            <div class="menu-controls" aria-label="Game controls">
+                WASD &nbsp;|&nbsp; MOUSE LOOK &nbsp;|&nbsp; LMB SHOOT &nbsp;|&nbsp; RMB AIM<br>
+                SPACE JUMP &nbsp;|&nbsp; CTRL CROUCH &nbsp;|&nbsp; SHIFT SPRINT<br>
+                1-7 WEAPONS &nbsp;|&nbsp; R RELOAD &nbsp;|&nbsp; Q MEDKIT<br>
+                G GRENADE &nbsp;|&nbsp; F FIRE BOMB
+            </div>
         </div>
     </div>
 
+    <!-- HUD Overlay -->
     <div id="hud" class="hidden">
-        <div id="unlockBanner"></div>
-        <div class="crosshair"></div>
-        <div class="hitmarker" id="hitmarker"></div>
-        <div class="damage-overlay" id="damageOverlay"></div>
+        <div id="unlockBanner" aria-live="polite"></div>
+        <div class="crosshair" aria-hidden="true"></div>
+        <div class="hitmarker" id="hitmarker" aria-hidden="true"></div>
+        <div class="damage-overlay" id="damageOverlay" aria-hidden="true"></div>
+        <div id="killFeed" class="kill-feed" aria-live="polite" aria-label="Kill feed"></div>
 
-        <div class="hud-top-left">
-            <div class="hud-level" id="hudLevel">LEVEL 1 - MUMBAI</div>
+        <div class="hud-top-left" aria-label="Mission info">
+            <div class="hud-level" id="hudLevel">LEVEL 1 &mdash; MUMBAI</div>
             <div class="hud-score" id="hudScore">SCORE: 0</div>
-            <div class="hud-kills" id="hudKills">KILLS: 0</div>
+            <div class="hud-kills" id="hudKills">KILLS: 0 &bull; HS: 0 &bull; ACC: 0%</div>
         </div>
 
-        <div class="hud-minimap">
+        <div class="hud-minimap" aria-label="Minimap">
             <canvas id="minimapCanvas" width="140" height="140"></canvas>
         </div>
 
-        <div class="hud-health-container">
-            <div class="hud-health-bar"><div class="hud-health-fill" id="healthFill"></div></div>
+        <div class="hud-health-container" aria-label="Player health">
+            <div class="hud-health-label">HEALTH</div>
+            <div class="hud-health-bar-wrap">
+                <div class="hud-health-fill" id="healthFill"></div>
+            </div>
             <div class="hud-health-text" id="healthText">100 HP</div>
         </div>
 
-        <div class="weapon-slots" id="weaponSlots"></div>
+        <div id="bossHealthBar" class="boss-health" style="display:none;" aria-live="polite">
+            <div class="boss-health-title" id="bossName">BOSS</div>
+            <div class="boss-health-bar-wrap">
+                <div class="boss-health-fill" id="bossHealthFill"></div>
+            </div>
+        </div>
 
-        <div class="hud-bottom">
+        <div class="weapon-slots" id="weaponSlots" aria-label="Weapon loadout"></div>
+
+        <div class="hud-bottom" aria-label="Current weapon">
             <div>
                 <div class="hud-weapon" id="hudWeapon">REVOLVER .44</div>
-                <div class="hud-ammo"><span id="hudAmmo">6</span> <small>/ 6</small></div>
+                <div class="hud-ammo">
+                    <span class="ammo-count" id="hudAmmo">6</span>
+                    <span class="ammo-max">/ 6</span>
+                </div>
             </div>
         </div>
 
-        <div class="medkit-indicator" id="medkitIndicator">MEDKITS: 2</div>
-        <div class="throwable-indicator" id="throwableIndicator">G:GRENADE×3  F:FIRE×2</div>
-        <div id="scopeOverlay"><div class="scope-circle">
-            <div class="scope-v"></div>
-            <div class="scope-h"></div>
-            <div class="scope-dot"></div>
-            <div class="scope-mil" style="left:50%;top:30%;"></div>
-            <div class="scope-mil" style="left:50%;top:70%;"></div>
-            <div class="scope-mil" style="left:30%;top:50%;"></div>
-            <div class="scope-mil" style="left:70%;top:50%;"></div>
-        </div></div>
-        <div id="protIndicator">🛡 SPAWN PROTECTION</div>
+        <div class="medkit-indicator" id="medkitIndicator" aria-label="Medkits">MEDKITS: 2</div>
+        <div class="throwable-indicator" id="throwableIndicator" aria-label="Throwables">G:GRENADE×3  F:FIRE×2</div>
 
+        <div id="scopeOverlay" aria-hidden="true">
+            <div class="scope-circle">
+                <div class="scope-v"></div>
+                <div class="scope-h"></div>
+                <div class="scope-dot"></div>
+                <div class="scope-mil" style="left:50%;top:30%;"></div>
+                <div class="scope-mil" style="left:50%;top:70%;"></div>
+                <div class="scope-mil" style="left:30%;top:50%;"></div>
+                <div class="scope-mil" style="left:70%;top:50%;"></div>
+            </div>
+        </div>
+
+        <div id="protIndicator" aria-live="polite">SPAWN PROTECTION</div>
+    </div>
+
+    <!-- Mission Intermission -->
     <div id="intermission">
-        <div class="inter-title">INCOMING — NEXT SECTOR</div>
-        <div class="inter-level" id="interLevel">LEVEL 2</div>
-        <div class="inter-place" id="interPlace">CITY · PLACE</div>
-        <div class="inter-unlock" id="interUnlock"></div>
-        <div class="inter-count" id="interCount">5</div>
-        <div class="inter-hint">Take a breath. Check your ammo. Enemies frozen until drop.</div>
-    </div>
+        <div class="inter-panel">
+            <div class="inter-title">INCOMING &mdash; NEXT SECTOR</div>
+            <div class="inter-level" id="interLevel">LEVEL 2</div>
+            <div class="inter-place" id="interPlace">MISSION BRIEFING</div>
+            <div class="inter-unlock" id="interUnlock"></div>
+            <div class="inter-count" id="interCount">5</div>
+            <div class="inter-hint">Take a breath. Check your ammo. Enemies frozen until drop.</div>
+        </div>
     </div>
 
+    <!-- Game Over Screen -->
     <div class="game-over-screen" id="gameOverScreen">
-        <div class="game-over-title">MISSION FAILED</div>
-        <div class="new-record" id="newRecord" style="display:none;">★ NEW RECORD ★</div>
-        <div class="game-over-score" id="finalScore">SCORE: 0</div>
-        <div class="best-score" id="bestScore">BEST: 0</div>
-        <div class="game-over-score" id="finalBreath" style="font-size:16px;color:#9ab;margin-top:8px;letter-spacing:1px;"></div>
-        <button class="game-over-btn" onclick="restartGame()">RETRY</button>
-    </div>
-
-    <div class="pause-screen" id="pauseScreen">
-        <div class="pause-title">PAUSED</div>
-        <button class="pause-btn" id="resumeBtn">RESUME</button>
-        <button class="pause-btn" id="settingsBtn">SETTINGS</button>
-        <button class="pause-btn secondary" id="quitBtn">QUIT TO MENU</button>
-    </div>
-
-    <div class="settings-screen" id="settingsScreen">
-        <div class="settings-title">SETTINGS</div>
-        <div class="settings-group">
-            <div class="settings-row">
-                <span class="settings-label">MOUSE SENSITIVITY</span>
-                <div class="settings-ctrl">
-                    <button onclick="adjustSetting('sensitivity', -0.2)">-</button>
-                    <span class="settings-value" id="sensitivityVal">1.0</span>
-                    <button onclick="adjustSetting('sensitivity', 0.2)">+</button>
-                </div>
-            </div>
-            <div class="settings-row">
-                <span class="settings-label">FIELD OF VIEW</span>
-                <div class="settings-ctrl">
-                    <button onclick="adjustSetting('fov', -5)">-</button>
-                    <span class="settings-value" id="fovVal">75</span>
-                    <button onclick="adjustSetting('fov', 5)">+</button>
-                </div>
-            </div>
-            <div class="settings-row">
-                <span class="settings-label">MASTER VOLUME</span>
-                <div class="settings-ctrl">
-                    <button onclick="adjustSetting('volume', -10)">-</button>
-                    <span class="settings-value" id="volumeVal">80%</span>
-                    <button onclick="adjustSetting('volume', 10)">+</button>
-                </div>
-            </div>
-            <div class="settings-row">
-                <span class="settings-label">INVERT Y AXIS</span>
-                <button class="settings-toggle" id="invertYBtn" onclick="toggleSetting('invertY')">OFF</button>
-            </div>
-            <div class="settings-row">
-                <span class="settings-label">SHOW CROSSHAIR</span>
-                <button class="settings-toggle" id="crosshairBtn" onclick="toggleSetting('crosshair')">ON</button>
-            </div>
-            <div class="settings-row">
-                <span class="settings-label">SHOW MINIMAP</span>
-                <button class="settings-toggle" id="minimapBtn" onclick="toggleSetting('minimap')">ON</button>
+        <div class="result-panel">
+            <div class="result-title">MISSION FAILED</div>
+            <div class="new-record" id="newRecord" style="display:none;">★ NEW RECORD ★</div>
+            <div class="result-score" id="finalScore">SCORE: 0</div>
+            <div class="result-best" id="bestScore">BEST: 0</div>
+            <div class="result-stats" id="finalBreath" style="font-size:14px;color:#9ab;margin-top:12px;letter-spacing:1px;"></div>
+            <div class="result-actions">
+                <button class="result-btn" id="btnRetry" onclick="restartGame()">RETRY</button>
+                <button class="result-btn secondary" onclick="quitToMenu()">QUIT TO MENU</button>
             </div>
         </div>
-        <button class="settings-back" id="settingsBackBtn">BACK</button>
     </div>
 
+    <!-- Victory Screen -->
     <div class="win-screen" id="winScreen">
-        <div class="win-title">MISSION COMPLETE</div>
-        <div class="new-record" id="winRecord" style="display:none;">★ NEW RECORD ★</div>
-        <div class="win-score" id="winScore">SCORE: 0</div>
-        <div class="best-score" id="winBest">BEST: 0</div>
-        <button class="win-btn" onclick="restartGame()">PLAY AGAIN</button>
+        <div class="result-panel">
+            <div class="result-title">MISSION COMPLETE</div>
+            <div class="new-record" id="winRecord" style="display:none;">★ NEW RECORD ★</div>
+            <div class="result-score" id="winScore">SCORE: 0</div>
+            <div class="result-best" id="winBest">BEST: 0</div>
+            <div class="result-actions">
+                <button class="result-btn" onclick="restartGame()">PLAY AGAIN</button>
+                <button class="result-btn secondary" onclick="quitToMenu()">QUIT TO MENU</button>
+            </div>
+        </div>
     </div>
 
+    <!-- Pause Screen -->
+    <div class="pause-screen" id="pauseScreen">
+        <div class="pause-panel">
+            <div class="pause-title">PAUSED</div>
+            <div class="pause-actions">
+                <button class="pause-btn" id="resumeBtn">RESUME</button>
+                <button class="pause-btn" id="settingsBtn">SETTINGS</button>
+                <button class="pause-btn secondary" id="quitBtn">QUIT TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Screen -->
+    <div class="settings-screen" id="settingsScreen">
+        <div class="settings-container">
+            <div class="settings-title">SETTINGS</div>
+
+            <div class="settings-group">
+                <span class="settings-group-label">GAMEPLAY</span>
+                <div class="settings-row">
+                    <span class="settings-label">DIFFICULTY</span>
+                    <div class="settings-ctrl">
+                        <button onclick="setDifficulty('easy')">EASY</button>
+                        <button onclick="setDifficulty('normal')">NORMAL</button>
+                        <button onclick="setDifficulty('hard')">HARD</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">INVERT Y AXIS</span>
+                    <button class="settings-toggle" id="invertYBtn" onclick="toggleSetting('invertY')">OFF</button>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">SHOW CROSSHAIR</span>
+                    <button class="settings-toggle" id="crosshairBtn" onclick="toggleSetting('crosshair')">ON</button>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">SHOW MINIMAP</span>
+                    <button class="settings-toggle" id="minimapBtn" onclick="toggleSetting('minimap')">ON</button>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <span class="settings-group-label">AUDIO</span>
+                <div class="settings-row">
+                    <span class="settings-label">MASTER VOLUME</span>
+                    <div class="settings-ctrl">
+                        <button onclick="adjustSetting('volume', -10)">&#8722;</button>
+                        <span class="settings-value" id="volumeVal">80%</span>
+                        <button onclick="adjustSetting('volume', 10)">&#43;</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <span class="settings-group-label">CONTROLS</span>
+                <div class="settings-row">
+                    <span class="settings-label">MOUSE SENSITIVITY</span>
+                    <div class="settings-ctrl">
+                        <button onclick="adjustSetting('sensitivity', -0.2)">&#8722;</button>
+                        <span class="settings-value" id="sensitivityVal">1.0</span>
+                        <button onclick="adjustSetting('sensitivity', 0.2)">&#43;</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">FIELD OF VIEW</span>
+                    <div class="settings-ctrl">
+                        <button onclick="adjustSetting('fov', -5)">&#8722;</button>
+                        <span class="settings-value" id="fovVal">75</span>
+                        <button onclick="adjustSetting('fov', 5)">&#43;</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="settings-restore" onclick="restoreDefaults()">RESTORE DEFAULTS</button>
+            <button class="settings-back" id="settingsBackBtn">BACK</button>
+        </div>
+    </div>
+
+    <!-- Importmap & Module Script -->
     <script type="importmap">
     {
         "imports": {
@@ -481,5 +1683,47 @@
     }
     </script>
     <script type="module" src="game.js"></script>
+
+    <!-- Loading Screen Controller (connects to actual initialization) -->
+    <script>
+        (function() {
+            var loadingScreen = document.getElementById('loadingScreen');
+            var loadingStatus = document.getElementById('loadingStatus');
+            var hidden = false;
+
+            function hideLoading() {
+                if (hidden) return;
+                hidden = true;
+                if (loadingScreen) {
+                    loadingScreen.classList.add('hidden');
+                    setTimeout(function() {
+                        loadingScreen.style.display = 'none';
+                    }, 400);
+                }
+            }
+
+            // Phase 1: DOM ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    loadingStatus.textContent = 'DOM loaded · Loading modules...';
+                });
+            } else {
+                loadingStatus.textContent = 'DOM loaded · Loading modules...';
+            }
+
+            // Phase 2: All resources (including Three.js module) loaded
+            window.addEventListener('load', function() {
+                loadingStatus.textContent = 'Resources loaded · Initializing...';
+                // Give the UI a brief moment to render, then hide
+                setTimeout(hideLoading, 300);
+            });
+
+            // Fallback: hide after 3 seconds if load never fires
+            setTimeout(hideLoading, 3000);
+
+            // Expose for game.js to call if it needs to delay
+            window.__bingShootLoadingReady = hideLoading;
+        })();
+    </script>
 </body>
 </html>
