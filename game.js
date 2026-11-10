@@ -3189,6 +3189,14 @@ function winLevel() {
 
 function resetRunState(mode = gameMode) {
     gameMode = mode;
+    if (deathGroup) {
+        if (deathGroup.parent) deathGroup.parent.remove(deathGroup);
+        deathGroup = null;
+    }
+    deathT = 0;
+    deathCamFrom = null;
+    deathCamTo = null;
+    dimScene(false);
     level = 1;
     score = 0;
     kills = 0;
@@ -3291,10 +3299,17 @@ function quitToMenu() {
     gameState = 'menu';
     document.getElementById('pauseScreen').classList.remove('show');
     document.getElementById('settingsScreen').classList.remove('show');
+    document.getElementById('gameOverScreen').classList.remove('show');
+    document.getElementById('winScreen').classList.remove('show');
+    document.getElementById('intermission').classList.remove('show');
     document.getElementById('hud').classList.add('hidden');
     document.getElementById('blocker').classList.remove('show');
     document.getElementById('blocker').classList.remove('hidden');
     document.getElementById('bg-character').classList.remove('bg-hidden');
+    const recordBanner = document.getElementById('newRecord');
+    const winRecordBanner = document.getElementById('winRecord');
+    if (recordBanner) recordBanner.style.display = 'none';
+    if (winRecordBanner) winRecordBanner.style.display = 'none';
     if (renderer) renderer.domElement.style.display = 'none';
     stopGameLoop();
     document.exitPointerLock();
